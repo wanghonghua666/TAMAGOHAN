@@ -104,9 +104,9 @@ export default function CharacterDisplay() {
           </div>
 
           {/* 角色展示区域 - 直接融入房间 */}
-          <div className="flex-1 flex items-center justify-center relative" style={{ minHeight: '300px' }}>
-            {/* 角色直接放在房间里，无背景 */}
-            <div className="relative">
+          <div className="flex-1 flex items-end justify-center relative" style={{ minHeight: '400px', paddingBottom: '60px' }}>
+            {/* 角色直接放在地毯上 */}
+            <div className="relative" style={{ transform: 'translateY(50px)' }}>
               <div className="text-[12rem] leading-none bounce-animation drop-shadow-2xl">
                 {character.emoji}
               </div>
