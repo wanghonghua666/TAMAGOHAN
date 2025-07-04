@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
 /* 游戏化字体优化 */
 @import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Fredoka:wght@300;400;500;600;700&display=swap');
 
@@ -12,16 +22,19 @@ html {
 /* 游戏化动画 */
 @keyframes bounce {
   0%, 20%, 53%, 80%, 100% {
-    transform: translate3d(0, 0, 0);
+    animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+    transform: translate3d(0,0,0);
   }
   40%, 43% {
+    animation-timing-function: cubic-bezier(0.755, 0.050, 0.855, 0.060);
     transform: translate3d(0, -8px, 0);
   }
   70% {
+    animation-timing-function: cubic-bezier(0.755, 0.050, 0.855, 0.060);
     transform: translate3d(0, -4px, 0);
   }
   90% {
-    transform: translate3d(0, -2px, 0);
+    transform: translate3d(0,-1px,0);
   }
 }
 
@@ -67,6 +80,27 @@ html {
   }
 }
 
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 新增动画：摇晃效果（用于💀状态） */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+/* 新增动画：生病摆动效果（用于🤢状态） */
+@keyframes sickWiggle {
+  0%, 100% { transform: rotate(0deg) translateY(0px); }
+  25% { transform: rotate(-3deg) translateY(-2px); }
+  50% { transform: rotate(0deg) translateY(-4px); }
+  75% { transform: rotate(3deg) translateY(-2px); }
+}
+
 /* 自定义游戏化组件样式 */
 @layer components {
   .btn-primary {
@@ -94,11 +128,17 @@ html {
   }
   
   .stat-bar {
-    @apply bg-gray-200 rounded-full h-3 shadow-inner;
+    width: 100%;
+    height: 8px;
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+    overflow: hidden;
   }
   
   .stat-fill {
-    @apply h-3 rounded-full transition-all duration-1000 ease-out shadow-sm;
+    height: 100%;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
   }
   
   .bounce-animation {
@@ -106,7 +146,7 @@ html {
   }
   
   .wiggle-animation {
-    animation: wiggle 2s ease-in-out infinite;
+    animation: wiggle 1s ease-in-out infinite;
   }
   
   .glow-animation {
@@ -116,4 +156,61 @@ html {
   .float-animation {
     animation: float 3s ease-in-out infinite;
   }
-} 
+  
+  .pulse-animation {
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  .shake-animation {
+    animation: shake 0.5s linear infinite;
+  }
+  
+  .sick-wiggle-animation {
+    animation: sickWiggle 2s ease-in-out infinite;
+  }
+}
+
+/* 按钮样式优化 */
+.game-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.game-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.game-button:active {
+  transform: translateY(0);
+  box-shadow: 0 5px 15px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* 响应式文字大小调整 */
+@media (max-width: 768px) {
+  .pet-emoji {
+    font-size: 8rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .pet-emoji {
+    font-size: 12rem;
+  }
+}
+
+/* 地毯阴影效果 */
+.carpet-shadow {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* 健康分数颜色渐变 */
+.health-critical { color: #dc2626; }
+.health-low { color: #ea580c; }
+.health-medium { color: #d97706; }
+.health-good { color: #16a34a; }
+.health-excellent { color: #059669; } 
