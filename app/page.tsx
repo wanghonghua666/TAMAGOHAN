@@ -6,13 +6,13 @@ import { useAuth } from '@/lib/auth-context'
 import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
 
-// 背景配置 - 使用实际存在的图片
+// 背景配置 - 使用正确的图片路径
 const backgrounds = [
-  { name: '默認の部屋', path: '/character-room-bg.png', gradient: 'from-purple-400 to-pink-500' },
-  { name: '森の中', path: '/character-room-bg.png', gradient: 'from-green-400 to-blue-500' },
+  { name: '默認', path: '/character-room-bg.png', gradient: 'from-purple-400 to-pink-500' },
+  { name: '森の中', path: '/backgrounds/character-room-bg.png', gradient: 'from-green-400 to-blue-500' },
   { name: '海辺', path: '/character-room-bg.png', gradient: 'from-blue-400 to-cyan-500' },
   { name: '山の上', path: '/character-room-bg.png', gradient: 'from-purple-400 to-pink-500' },
-  { name: '夕陽', path: '/character-room-bg.png', gradient: 'from-orange-400 to-red-500' }
+  { name: '桜並木', path: '/character-room-bg.png', gradient: 'from-pink-400 to-rose-500' }
 ]
 
 export default function HomePage() {
@@ -24,9 +24,17 @@ export default function HomePage() {
   const [lastFed, setLastFed] = useState(2) // 小时
   const [healthScore, setHealthScore] = useState(85) // 健康分数
   const [lastMealScore, setLastMealScore] = useState(null as number | null) // 最后一餐的分数
+  const [isClient, setIsClient] = useState(false) // 添加客户端检查
 
-  // 小熊状态逻辑
+  // 客户端检查
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // 小熊状态逻辑 - 只在客户端执行
+  useEffect(() => {
+    if (!isClient) return // 防止hydration错误
+    
     // 检查localStorage中的健康数据
     if (typeof window !== 'undefined') {
       const savedHealthScore = localStorage.getItem('pet-health-score')
@@ -46,10 +54,12 @@ export default function HomePage() {
         setLastFed(hoursAgo)
       }
     }
-  }, [])
+  }, [isClient])
 
   // 根据健康分数和最后一餐决定小熊状态
   useEffect(() => {
+    if (!isClient) return // 防止hydration错误
+    
     if (lastMealScore !== null && lastMealScore < 20) {
       // 吃了低于20分的食物 -> 🤢
       setPetMood('sick')
@@ -63,7 +73,7 @@ export default function HomePage() {
       // 普通状态
       setPetMood('happy')
     }
-  }, [healthScore, lastMealScore])
+  }, [healthScore, lastMealScore, isClient])
 
   // 获取小熊表情
   const getPetEmoji = () => {
@@ -129,15 +139,41 @@ export default function HomePage() {
     }
   }
 
-  // 从localStorage恢复背景设置
+  // 从localStorage恢复背景设置 - 只在客户端执行
   useEffect(() => {
+    if (!isClient) return // 防止hydration错误
+    
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('selected-background')
       if (saved) {
         setCurrentBackground(parseInt(saved))
       }
     }
-  }, [])
+  }, [isClient])
+
+  // 如果还没有在客户端渲染，显示简化版本
+  if (!isClient) {
+    return (
+      <div 
+        className="min-h-screen relative overflow-hidden"
+        style={{
+          backgroundImage: `url('${backgrounds[0].path}')`,
+          backgroundSize: '100% 100%',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-[200px] bounce-animation">🧸</div>
+            <div className="bg-white/95 rounded-full px-6 py-3 shadow-lg">
+              <p className="text-xl font-bold text-purple-800">読み込み中...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div 
@@ -149,15 +185,14 @@ export default function HomePage() {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* 渐变覆盖层 - 不同背景效果 */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${backgrounds[currentBackground].gradient} opacity-40`}></div>
+      {/* 移除所有覆盖层和效果，保持原始图片 */}
       
       {/* 背景装饰 - 减少透明度 */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-10 left-10 text-4xl opacity-10 float-animation">🌟</div>
-        <div className="absolute top-20 right-20 text-3xl opacity-10 float-animation" style={{ animationDelay: '1s' }}>⭐</div>
-        <div className="absolute bottom-20 left-20 text-5xl opacity-10 float-animation" style={{ animationDelay: '2s' }}>✨</div>
-        <div className="absolute bottom-10 right-10 text-3xl opacity-10 float-animation" style={{ animationDelay: '3s' }}>🎮</div>
+        <div className="absolute top-10 left-10 text-4xl opacity-5 float-animation">🌟</div>
+        <div className="absolute top-20 right-20 text-3xl opacity-5 float-animation" style={{ animationDelay: '1s' }}>⭐</div>
+        <div className="absolute bottom-20 left-20 text-5xl opacity-5 float-animation" style={{ animationDelay: '2s' }}>✨</div>
+        <div className="absolute bottom-10 right-10 text-3xl opacity-5 float-animation" style={{ animationDelay: '3s' }}>🎮</div>
       </div>
 
       {/* 背景切换按钮 */}
@@ -268,28 +303,17 @@ export default function HomePage() {
           {/* 中央互动区域 */}
           <div className="lg:col-span-8 flex flex-col">
             {/* 宠物互动主区域 */}
-            <div className="flex-1 bg-white/25 rounded-3xl shadow-inner border-2 border-white/50 relative overflow-hidden">
+            <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
               {/* 互动提示 */}
               <div className="absolute top-4 left-4 bg-white/90 rounded-full px-4 py-2 shadow-lg z-20">
                 <span className="text-sm font-bold text-purple-800">👆 タップして遊ぼう！</span>
-              </div>
+      </div>
 
-              {/* 地毯背景 - 更真实的3D效果 */}
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-96 h-48 bg-gradient-to-t from-amber-800 to-amber-600 rounded-full opacity-80 shadow-2xl"></div>
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-[22rem] h-44 bg-gradient-to-t from-amber-700 to-amber-500 rounded-full opacity-90 shadow-xl"></div>
-              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-80 h-40 bg-gradient-to-t from-amber-600 to-amber-400 rounded-full opacity-95 shadow-lg"></div>
-              
-              {/* 地毯纹理效果 */}
-              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-72 h-36 rounded-full opacity-20">
-                <div className="w-full h-full bg-gradient-to-r from-amber-300 via-orange-300 to-amber-300 rounded-full"></div>
-                <div className="absolute top-4 left-4 w-16 h-16 bg-amber-500 rounded-full opacity-30"></div>
-                <div className="absolute top-6 right-8 w-12 h-12 bg-orange-400 rounded-full opacity-25"></div>
-                <div className="absolute bottom-6 left-1/3 w-20 h-20 bg-amber-400 rounded-full opacity-20"></div>
-              </div>
+              {/* 移除3D地毯效果，使用图片原有的地毯 */}
 
-              {/* 宠物显示区域 - 在地毯上 */}
+              {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-16 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-8 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
                 onClick={handlePetClick}
               >
                 <div className="text-center">
@@ -316,12 +340,12 @@ export default function HomePage() {
                   <div className={`rounded-full px-6 py-3 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
                     <p className={`text-xl font-bold ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
                       {getPetMessage()}
-                    </p>
-                  </div>
+        </p>
+      </div>
                 </div>
               </div>
 
-              {/* 分离的互动按钮区域 */}
+              {/* 分离的互动按钮区域 - 删除药物按钮 */}
               <div className="absolute top-1/3 right-8 flex flex-col space-y-4">
                 <Link href="/meal">
                   <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">
@@ -331,10 +355,6 @@ export default function HomePage() {
                 
                 <button className="bg-gradient-to-r from-blue-400 to-purple-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white">
                   🎮 遊ぶ
-                </button>
-                
-                <button className="bg-gradient-to-r from-green-400 to-emerald-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white">
-                  💊 薬をあげる
                 </button>
               </div>
             </div>
@@ -379,8 +399,8 @@ export default function HomePage() {
                 <div className="text-center">
                   <div className="text-2xl font-black text-green-600 mb-1">3</div>
                   <div className="text-xs text-gray-600">食事回数</div>
-                </div>
-                
+        </div>
+
                 <div className="text-center">
                   <div className="text-2xl font-black text-blue-600 mb-1">2,150</div>
                   <div className="text-xs text-gray-600">総カロリー</div>
@@ -419,27 +439,17 @@ export default function HomePage() {
           </div>
 
           {/* 手机版宠物互动区域 */}
-          <div className="flex-1 bg-white/25 rounded-3xl shadow-inner border-2 border-white/50 relative overflow-hidden">
+          <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
             {/* 互动提示 */}
             <div className="absolute top-4 left-4 bg-white/90 rounded-full px-4 py-2 shadow-lg z-20">
               <span className="text-sm font-bold text-purple-800">👆 タップして遊ぼう！</span>
             </div>
 
-            {/* 地毯背景 - 手机版 */}
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-72 h-36 bg-gradient-to-t from-amber-800 to-amber-600 rounded-full opacity-80 shadow-2xl"></div>
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-64 h-32 bg-gradient-to-t from-amber-700 to-amber-500 rounded-full opacity-90 shadow-xl"></div>
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-56 h-28 bg-gradient-to-t from-amber-600 to-amber-400 rounded-full opacity-95 shadow-lg"></div>
-            
-            {/* 地毯纹理效果 - 手机版 */}
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-48 h-24 rounded-full opacity-20">
-              <div className="w-full h-full bg-gradient-to-r from-amber-300 via-orange-300 to-amber-300 rounded-full"></div>
-              <div className="absolute top-2 left-2 w-8 h-8 bg-amber-500 rounded-full opacity-30"></div>
-              <div className="absolute top-3 right-4 w-6 h-6 bg-orange-400 rounded-full opacity-25"></div>
-            </div>
+            {/* 移除3D地毯效果 */}
 
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-12 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-6 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
               onClick={handlePetClick}
             >
               <div className="text-center">
@@ -471,7 +481,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* 手机版互动按钮 */}
+            {/* 手机版互动按钮 - 删除药物按钮 */}
             <div className="absolute top-1/4 right-4 flex flex-col space-y-3">
               <Link href="/meal">
                 <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-sm py-3 px-4 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">

@@ -24,48 +24,47 @@ interface FoodRecognitionResult {
 // Clarifai食物识别
 async function recognizeWithClarifai(imageBase64: string): Promise<string[]> {
   try {
-    // Clarifai免费API密钥 - 请替换为你自己的密钥
-    const CLARIFAI_API_KEY = process.env.NEXT_PUBLIC_CLARIFAI_API_KEY
-    
-    if (!CLARIFAI_API_KEY) {
-      console.log('Clarifai API密钥未设置，使用模拟数据')
-      return []
-    }
+    console.log('🤖 开始Clarifai食物识别...')
+    console.log('🔄 使用服务器端API路由避免CORS问题')
 
-    const response = await fetch('https://api.clarifai.com/v2/models/food-item-recognition/outputs', {
+    // 调用我们的Next.js API路由而不是直接调用Clarifai
+    const response = await fetch('/api/analyze-food', {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${CLARIFAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: [
-          {
-            data: {
-              image: {
-                base64: imageBase64.split(',')[1] // 移除data:image/jpeg;base64,前缀
-              }
-            }
-          }
-        ]
+        imageBase64: imageBase64
       })
     })
 
+    console.log('📨 API路由响应状态:', response.status)
+
     if (!response.ok) {
-      throw new Error('Clarifai API调用失败')
+      const errorData = await response.json()
+      console.error('❌ API路由错误:', errorData)
+      throw new Error(`API路由调用失败: ${response.status} - ${errorData.error}`)
     }
 
     const result = await response.json()
-    const concepts = result.outputs[0]?.data?.concepts || []
+    console.log('🔍 API路由响应:', result)
+
+    if (!result.success) {
+      throw new Error(`API识别失败: ${result.error}`)
+    }
+
+    const foodItems = result.ingredients || []
+    console.log('✅ 最终识别的食物:', foodItems)
     
-    // 提取置信度大于0.6的食物名称
-    return concepts
-      .filter((concept: any) => concept.value > 0.6)
-      .map((concept: any) => concept.name)
-      .slice(0, 5) // 最多返回5个食材
+    return foodItems
       
-  } catch (error) {
-    console.error('Clarifai识别失败:', error)
+  } catch (error: any) {
+    console.error('❌ Clarifai识别失败:', error.message)
+    console.error('🔧 可能的问题:')
+    console.error('   1. 服务器端API路由错误')
+    console.error('   2. API密钥配置问题')
+    console.error('   3. 网络连接问题')
+    console.error('   4. 图片格式不支持')
     return []
   }
 }
@@ -76,15 +75,31 @@ async function recognizeWithGoogleVision(imageBase64: string): Promise<string[]>
     const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_VISION_API_KEY
     
     if (!GOOGLE_API_KEY) {
-      console.log('Google Vision API密钥未设置')
+      console.log('❌ Google Vision API密钥未设置')
+      console.log('🔧 解决方法：在 .env.local 文件中添加 NEXT_PUBLIC_GOOGLE_VISION_API_KEY')
+      console.log('📖 获取方式：https://cloud.google.com/vision/docs/setup')
       return []
     }
+
+    // 验证API密钥格式
+    if (!GOOGLE_API_KEY.startsWith('AIza')) {
+      console.log('❌ Google Vision API密钥格式无效')
+      console.log('🔧 正确格式应该以 "AIza" 开头')
+      return []
+    }
+
+    console.log('开始调用Google Vision API...')
+
+    // 创建超时控制
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10秒超时
 
     const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
       body: JSON.stringify({
         requests: [
           {
@@ -102,25 +117,55 @@ async function recognizeWithGoogleVision(imageBase64: string): Promise<string[]>
       })
     })
 
+    clearTimeout(timeoutId)
+
+    console.log('Google Vision API响应状态:', response.status)
+
     if (!response.ok) {
-      throw new Error('Google Vision API调用失败')
+      const errorText = await response.text()
+      console.error('Google Vision API错误:', response.status, errorText)
+      throw new Error(`Google Vision API调用失败: ${response.status}`)
     }
 
     const result = await response.json()
+    console.log('Google Vision API原始结果:', result)
+
+    // 检查API响应格式
+    if (!result.responses || !result.responses[0]) {
+      console.log('Google Vision API返回空结果')
+      return []
+    }
+
     const labels = result.responses[0]?.labelAnnotations || []
+    console.log('识别的标签:', labels)
     
     // 过滤出食物相关的标签
-    const foodKeywords = ['food', 'dish', 'meal', 'cuisine', 'rice', 'meat', 'vegetable', 'fruit', 'bread', 'noodle']
-    return labels
-      .filter((label: any) => 
-        label.score > 0.7 && 
-        foodKeywords.some(keyword => label.description.toLowerCase().includes(keyword))
-      )
+    const foodKeywords = ['food', 'dish', 'meal', 'cuisine', 'rice', 'meat', 'vegetable', 'fruit', 'bread', 'noodle', 'cooking', 'eating', 'dinner', 'lunch', 'breakfast']
+    const foodLabels = labels
+      .filter((label: any) => {
+        const description = label.description.toLowerCase()
+        const isFoodRelated = foodKeywords.some(keyword => description.includes(keyword))
+        const hasGoodScore = label.score > 0.6
+        console.log(`标签: ${description}, 分数: ${label.score}, 食物相关: ${isFoodRelated}`)
+        return hasGoodScore && isFoodRelated
+      })
       .map((label: any) => label.description)
       .slice(0, 5)
+
+    console.log('最终识别的食物标签:', foodLabels)
+    return foodLabels
       
-  } catch (error) {
-    console.error('Google Vision识别失败:', error)
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.error('Google Vision API调用超时')
+    } else {
+      console.error('Google Vision识别失败:', error)
+      console.error('可能的问题：')
+      console.error('1. API密钥未设置或无效')
+      console.error('2. 超出免费配额限制')
+      console.error('3. 网络连接问题')
+      console.error('4. 图片格式不支持')
+    }
     return []
   }
 }
@@ -321,73 +366,115 @@ function analyzeNutrition(ingredients: string[]): {
 // 主要分析函数
 export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResult> {
   try {
+    console.log('=== 🍽️ 开始食物分析 ===')
+    console.log('📋 当前API架构:')
+    console.log('   ✅ Next.js API路由: /api/analyze-food')
+    console.log('   ✅ Clarifai API: 服务器端调用 (解决CORS问题)')
+    console.log('   ✅ 免费额度: 5000次/月')
+    console.log('   ❌ Google Vision API: 已禁用 (需要付费)')
+    console.log('   ✅ 文件名识别: 智能备选方案')
+    console.log('文件名:', file.name)
+    console.log('文件大小:', file.size, 'bytes')
+    
     // 将图片转换为base64
-    const base64 = await new Promise<string>((resolve) => {
+    console.log('1. 转换图片为base64...')
+    const base64 = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.onload = (e) => {
+        console.log('图片转换完成')
+        resolve(e.target?.result as string)
+      }
+      reader.onerror = (e) => {
+        console.error('图片读取失败:', e)
+        reject(new Error('图片读取失败'))
+      }
       reader.readAsDataURL(file)
     })
 
-    console.log('开始AI食物识别...')
+    console.log('2. 🤖 开始AI食物识别...')
     
-    // 尝试使用Clarifai识别
+    // 使用Clarifai API进行主要识别
+    console.log('2a. 🎯 使用Clarifai API识别...')
     let ingredients = await recognizeWithClarifai(base64)
+    console.log('🍽️ Clarifai识别结果:', ingredients)
     
-    // 如果Clarifai失败，尝试Google Vision
+    // 如果Clarifai失败，暂时跳过Google Vision（需要付费）
     if (ingredients.length === 0) {
-      console.log('尝试Google Vision API...')
-      ingredients = await recognizeWithGoogleVision(base64)
+      console.log('2b. Clarifai无结果，跳过Google Vision（需要计费）...')
+      // ingredients = await recognizeWithGoogleVision(base64)  // 暂时禁用
+      console.log('Google Vision已禁用，直接使用文件名识别')
     }
     
     // 如果所有API都失败，使用基于文件名的智能识别
     if (ingredients.length === 0) {
-      console.log('API识别失败，使用本地分析...')
+      console.log('2c. API识别失败，使用文件名分析...')
       const fileName = file.name.toLowerCase()
+      console.log('分析文件名:', fileName)
       
       // 垃圾食品识别
       if (fileName.includes('mac') || fileName.includes('mcdonald') || fileName.includes('burger')) {
         ingredients = ['mcdonald', 'fries', 'cola']
+        console.log('识别为麦当劳类食品')
       } else if (fileName.includes('kfc') || fileName.includes('fried chicken')) {
         ingredients = ['kfc', 'fries', 'cola']
+        console.log('识别为KFC类食品')
       } else if (fileName.includes('pizza')) {
         ingredients = ['pizza', 'cheese', 'bread']
+        console.log('识别为披萨')
       } else if (fileName.includes('pasta') || fileName.includes('spaghetti') || fileName.includes('macaroni')) {
         ingredients = ['pasta', 'white bread']  // 大部分pasta都是简单碳水
+        console.log('识别为意面类')
       } else if (fileName.includes('frozen') || fileName.includes('instant') || fileName.includes('microwave')) {
         ingredients = ['frozen', 'pasta']
+        console.log('识别为冷冻食品')
       } else if (fileName.includes('ramen') || fileName.includes('noodle')) {
         ingredients = ['ramen', 'white rice']
+        console.log('识别为拉面/面条')
       } else if (fileName.includes('fries') || fileName.includes('potato')) {
         ingredients = ['fries']
+        console.log('识别为薯条/土豆')
       } else if (fileName.includes('cola') || fileName.includes('soda') || fileName.includes('coke')) {
         ingredients = ['cola']
+        console.log('识别为可乐/汽水')
       } else if (fileName.includes('candy') || fileName.includes('chocolate') || fileName.includes('sweet')) {
         ingredients = ['candy']
-      } 
-      // 健康食品识别
-      else if (fileName.includes('salad') || fileName.includes('vegetable') || fileName.includes('veggie')) {
+        console.log('识别为糖果/巧克力')
+      } else if (fileName.includes('salad') || fileName.includes('vegetable') || fileName.includes('veggie')) {
         ingredients = ['salad', 'vegetable', 'broccoli']
+        console.log('识别为沙拉/蔬菜')
       } else if (fileName.includes('fish') || fileName.includes('salmon') || fileName.includes('tuna')) {
         ingredients = ['fish', 'vegetable']
+        console.log('识别为鱼类')
       } else if (fileName.includes('chicken') && !fileName.includes('fried')) {
         ingredients = ['chicken', 'vegetable']
+        console.log('识别为鸡肉(非油炸)')
       } else if (fileName.includes('fruit') || fileName.includes('apple') || fileName.includes('banana')) {
         ingredients = ['fruit']
+        console.log('识别为水果')
       } else if (fileName.includes('broccoli') || fileName.includes('spinach')) {
         ingredients = ['broccoli', 'spinach']
+        console.log('识别为绿色蔬菜')
       } else {
         // 未知食品，假设是加工食品
         ingredients = ['frozen', 'pasta']  // 降低默认假设
+        console.log('未知食品，默认为加工食品')
       }
     }
 
-    console.log('识别的食材:', ingredients)
+    console.log('3. 最终识别的食材:', ingredients)
     
     // 分析营养和健康分数
+    console.log('4. 分析营养和健康分数...')
     const analysis = analyzeNutrition(ingredients)
+    console.log('健康分析结果:', {
+      healthScore: analysis.healthScore,
+      categories: analysis.categories.map(c => c.name),
+      calories: analysis.nutrition.calories
+    })
     
     // 保存健康数据到localStorage
     if (typeof window !== 'undefined') {
+      console.log('5. 保存数据到本地存储...')
       // 保存最后一餐的分数
       localStorage.setItem('last-meal-score', analysis.healthScore.toString())
       localStorage.setItem('last-fed-time', Date.now().toString())
@@ -411,7 +498,9 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
       })
     }
     
-    return {
+    console.log('=== 食物分析完成 ===')
+    
+    const result = {
       ingredients,
       categories: analysis.categories,
       nutritionEstimate: analysis.nutrition,
@@ -420,11 +509,16 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
       message: analysis.message
     }
     
-  } catch (error) {
-    console.error('食物分析失败:', error)
+    console.log('返回结果:', result)
+    return result
+    
+  } catch (error: any) {
+    console.error('=== 食物分析失败 ===')
+    console.error('错误详情:', error)
+    console.error('错误堆栈:', error.stack)
     
     // 返回默认结果
-    return {
+    const fallbackResult = {
       ingredients: ['未知食材'],
       categories: [{ name: '未分類', confidence: 50, isHealthy: true }],
       nutritionEstimate: {
@@ -439,5 +533,8 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
       confidence: 30,
       message: '画像の分析に失敗しました。もう一度お試しください。'
     }
+    
+    console.log('返回默认结果:', fallbackResult)
+    return fallbackResult
   }
 } 
