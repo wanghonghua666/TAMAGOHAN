@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { Camera, Home, History, User, Menu, X } from 'lucide-react'
+import { Camera, Home, History, User, Menu, X, ShoppingBag } from 'lucide-react'
 
 export default function Navigation() {
   // 禁用登录功能，游客模式
@@ -12,6 +12,7 @@ export default function Navigation() {
     { href: '/', icon: Home, label: 'ホーム' },
     { href: '/meal', icon: Camera, label: '食事記録' },
     { href: '/history', icon: History, label: '履歴' },
+    { href: '/shop', icon: ShoppingBag, label: 'ショップ' },
   ]
 
   return (

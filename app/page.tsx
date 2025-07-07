@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
+import { storeItems } from '@/lib/store-items'
 
 // 背景配置 - 使用正确的图片路径
 const backgrounds = [
@@ -25,6 +26,7 @@ export default function HomePage() {
   const [healthScore, setHealthScore] = useState(85) // 健康分数
   const [lastMealScore, setLastMealScore] = useState(null as number | null) // 最后一餐的分数
   const [isClient, setIsClient] = useState(false) // 添加客户端检查
+  const [purchasedItems, setPurchasedItems] = useState<string[]>([])
 
   // 客户端检查
   useEffect(() => {
@@ -193,6 +195,25 @@ export default function HomePage() {
         <div className="absolute top-20 right-20 text-3xl opacity-5 float-animation" style={{ animationDelay: '1s' }}>⭐</div>
         <div className="absolute bottom-20 left-20 text-5xl opacity-5 float-animation" style={{ animationDelay: '2s' }}>✨</div>
         <div className="absolute bottom-10 right-10 text-3xl opacity-5 float-animation" style={{ animationDelay: '3s' }}>🎮</div>
+
+        {/* 已购买道具装饰 */}
+        {purchasedItems.map((id) => {
+          const item = storeItems.find(i => i.id === id)
+          if (!item) return null
+          // 简单定位规则
+          const styleMap: Record<string, React.CSSProperties> = {
+            plant: { bottom: '15%', left: '10%' },
+            sofa: { bottom: '5%', right: '10%' },
+            lamp: { top: '15%', right: '15%' },
+            art: { top: '20%', left: '45%' }
+          }
+          const posStyle = styleMap[id] || { bottom: '10%', left: '50%' }
+          return (
+            <div key={id} style={{ position: 'absolute', fontSize: '48px', pointerEvents: 'none', ...posStyle }}>
+              {item.emoji}
+            </div>
+          )
+        })}
       </div>
 
       {/* 背景切换按钮 */}
