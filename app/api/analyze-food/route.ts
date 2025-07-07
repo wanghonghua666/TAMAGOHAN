@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Clarifai API配置 - 先尝试食物识别模型
     const USER_ID = 'clarifai'
     const APP_ID = 'main'
-    const MODEL_ID = 'general-image-recognition' // 主模型
+    const MODEL_ID = 'food-item-recognition' // 先使用專門的食物識別模型
     console.log('🎯 使用模型(主):', MODEL_ID)
     const url = `https://api.clarifai.com/v2/users/${USER_ID}/apps/${APP_ID}/models/${MODEL_ID}/outputs`
     
@@ -108,26 +108,26 @@ export async function POST(request: NextRequest) {
       console.log('❌ 没有识别到任何概念，完整data结构:', JSON.stringify(result.outputs?.[0]?.data, null, 2))
     }
     
-    // 提取置信度大于0.4的食物名称
+    // 提取置信度大于0.25的食物名称
     const foodItems = concepts
       .filter((concept: any) => {
         console.log(`   - ${concept.name}: ${(concept.value * 100).toFixed(1)}%`)
-        return concept.value > 0.4
+        return concept.value > 0.25
       })
-      .map((concept: any) => concept.name)
-      .slice(0, 10)
+      .map((concept: any) => concept.name.toLowerCase())
+      .slice(0, 20)
 
     console.log('✅ 服务器端识别成功:', foodItems)
 
-    // 如果general模型没有足够结果，尝试food-item-recognition
+    // 如果 food 模型沒有足夠結果，嘗試通用模型 general-image-recognition
     if (foodItems.length === 0) {
-      console.log('🔄 主模型无结果，尝试备选 food-item-recognition 模型...')
+      console.log('🔄 主模型無結果，嘗試備選 general-image-recognition 模型...')
       
-      const foodUrl = `https://api.clarifai.com/v2/users/${USER_ID}/apps/${APP_ID}/models/food-item-recognition/versions/1d5fd481e0cf4826aa72ec3ff049e044/outputs`
-      console.log('🎯 备选模型URL:', foodUrl)
+      const generalUrl = `https://api.clarifai.com/v2/users/${USER_ID}/apps/${APP_ID}/models/general-image-recognition/outputs`
+      console.log('🎯 備選模型URL:', generalUrl)
       
       try {
-        const generalResponse = await fetch(foodUrl, {
+        const generalResponse = await fetch(generalUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Key ${CLARIFAI_API_KEY}`,
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 
         if (generalResponse.ok) {
           const generalResult = await generalResponse.json()
-          console.log('====== 备选模型原始响应 ======')
+          console.log('====== 備選模型原始响应 ======')
           console.log(JSON.stringify(generalResult, null, 2))
           console.log('==============================')
           
@@ -148,24 +148,24 @@ export async function POST(request: NextRequest) {
               const name = concept.name.toLowerCase()
               // 过滤出食物相关的标签
               const foodKeywords = ['food', 'meal', 'dish', 'bread', 'meat', 'fruit', 'vegetable', 'pasta', 'rice', 'chicken', 'fish', 'burger', 'pizza', 'salad']
-              return concept.value > 0.4 && foodKeywords.some(keyword => name.includes(keyword))
+              return concept.value > 0.25 && foodKeywords.some(keyword => name.includes(keyword))
             })
-            .map((concept: any) => concept.name)
-            .slice(0, 10)
+            .map((concept: any) => concept.name.toLowerCase())
+            .slice(0, 20)
           
-          console.log('🍽️ 备选模型识别的食物:', generalFoodItems)
+          console.log('🍽️ 備選模型识别的食物:', generalFoodItems)
           
           if (generalFoodItems.length > 0) {
             return NextResponse.json({
               success: true,
               ingredients: generalFoodItems,
-              model: 'food-item-recognition',
+              model: 'general-image-recognition',
               rawResponse: generalResult
             })
           }
         }
       } catch (generalError) {
-        console.error('❌ 备选模型也失败了:', generalError)
+        console.error('❌ 備選模型也失败了:', generalError)
       }
     }
 

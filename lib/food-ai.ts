@@ -199,7 +199,7 @@ function analyzeNutrition(ingredients: string[]): {
     'candy': { healthScore: 5, calories: 200, carbs: 50, protein: 0, fat: 2, fiber: 0, category: '糖分爆弾', isHealthy: false, keywords: ['candy', 'chocolate', 'キャンディ', 'チョコレート'] },
     
     // 🍝 加工食品/冷冻食品 (15-35分)
-    'pasta': { healthScore: 25, calories: 300, carbs: 55, protein: 12, fat: 8, fiber: 3, category: '炭水化物爆弾', isHealthy: false, keywords: ['pasta', 'spaghetti', 'macaroni', 'パスタ', 'スパゲッティ'] },
+    'pasta': { healthScore: 25, calories: 300, carbs: 55, protein: 12, fat: 8, fiber: 3, category: '炭水化物爆弾', isHealthy: false, keywords: ['pasta', 'spaghetti', 'fettuccine', 'linguine', 'macaroni', 'パスタ', 'スパゲッティ'] },
     'frozen': { healthScore: 20, calories: 350, carbs: 40, protein: 15, fat: 15, fiber: 2, category: '冷凍ジャンク', isHealthy: false, keywords: ['frozen', 'microwave', 'instant', '冷凍', 'インスタント'] },
     'ramen': { healthScore: 18, calories: 400, carbs: 60, protein: 12, fat: 15, fiber: 2, category: '炭水化物爆弾', isHealthy: false, keywords: ['ramen', 'instant noodles', 'cup noodles', 'ラーメン', 'カップ麺'] },
     'white bread': { healthScore: 30, calories: 80, carbs: 15, protein: 3, fat: 1, fiber: 1, category: '精製炭水化物', isHealthy: false, keywords: ['white bread', 'toast', 'sandwich', '白パン', 'トースト'] },
@@ -208,7 +208,7 @@ function analyzeNutrition(ingredients: string[]): {
     
     // 🥩 一般食品 (35-65分)
     'fried': { healthScore: 35, calories: 300, carbs: 20, protein: 15, fat: 20, fiber: 1, category: '揚げ物', isHealthy: false, keywords: ['fried', 'deep fried', 'tempura', 'katsu', '揚げ物', 'フライ'] },
-    'pork': { healthScore: 45, calories: 250, carbs: 0, protein: 26, fat: 16, fiber: 0, category: 'タンパク質', isHealthy: false, keywords: ['pork', 'bacon', '豚肉', 'ベーコン'] },
+    'pork': { healthScore: 45, calories: 250, carbs: 0, protein: 26, fat: 16, fiber: 0, category: 'タンパク質', isHealthy: false, keywords: ['pork', 'bacon', 'pork cutlet', 'cutlet', 'tonkatsu', '豚肉', 'ベーコン'] },
     'beef': { healthScore: 50, calories: 280, carbs: 0, protein: 28, fat: 18, fiber: 0, category: 'タンパク質', isHealthy: false, keywords: ['beef', 'steak', '牛肉', 'ステーキ'] },
     'chicken': { healthScore: 65, calories: 165, carbs: 0, protein: 31, fat: 4, fiber: 0, category: 'タンパク質', isHealthy: true, keywords: ['chicken', 'poultry', '鶏肉', 'チキン'] },
     'bread': { healthScore: 40, calories: 80, carbs: 15, protein: 3, fat: 1, fiber: 1, category: '主食', isHealthy: false, keywords: ['bread', 'パン'] },
@@ -220,12 +220,18 @@ function analyzeNutrition(ingredients: string[]): {
     'nuts': { healthScore: 75, calories: 180, carbs: 6, protein: 6, fat: 16, fiber: 3, category: '良質脂質', isHealthy: true, keywords: ['nuts', 'almonds', 'walnuts', 'ナッツ', 'アーモンド'] },
     
     // 🥬 超健康食品 (85-100分)
-    'vegetable': { healthScore: 95, calories: 25, carbs: 5, protein: 2, fat: 0, fiber: 3, category: '野菜', isHealthy: true, keywords: ['vegetable', 'vegetables', 'veggie', '野菜'] },
+    'vegetable': { healthScore: 95, calories: 25, carbs: 5, protein: 2, fat: 0, fiber: 3, category: '野菜', isHealthy: true, keywords: ['vegetable', 'vegetables', 'veggie', 'cabbage', 'chili', 'レタス', 'キャベツ', '野菜'] },
     'broccoli': { healthScore: 98, calories: 25, carbs: 5, protein: 3, fat: 0, fiber: 3, category: 'スーパーフード', isHealthy: true, keywords: ['broccoli', 'ブロッコリー'] },
     'spinach': { healthScore: 100, calories: 20, carbs: 3, protein: 3, fat: 0, fiber: 2, category: 'スーパーフード', isHealthy: true, keywords: ['spinach', 'ほうれん草'] },
     'salad': { healthScore: 95, calories: 20, carbs: 4, protein: 1, fat: 0, fiber: 2, category: '野菜', isHealthy: true, keywords: ['salad', 'lettuce', 'greens', 'サラダ', 'レタス'] },
     'fruit': { healthScore: 85, calories: 60, carbs: 15, protein: 1, fat: 0, fiber: 3, category: '果物', isHealthy: true, keywords: ['fruit', 'apple', 'banana', '果物', 'りんご', 'バナナ'] },
-    'avocado': { healthScore: 90, calories: 160, carbs: 9, protein: 2, fat: 15, fiber: 7, category: 'スーパーフード', isHealthy: true, keywords: ['avocado', 'アボカド'] }
+    'avocado': { healthScore: 90, calories: 160, carbs: 9, protein: 2, fat: 15, fiber: 7, category: 'スーパーフード', isHealthy: true, keywords: ['avocado', 'アボカド'] },
+    // 🥗 サラダ典型具材
+    'tomato': { healthScore: 90, calories: 18, carbs: 4, protein: 1, fat: 0, fiber: 1, category: '野菜', isHealthy: true, keywords: ['tomato', 'トマト'] },
+    'cucumber': { healthScore: 85, calories: 15, carbs: 3, protein: 1, fat: 0, fiber: 1, category: '野菜', isHealthy: true, keywords: ['cucumber', 'きゅうり', 'キュウリ'] },
+    'onion': { healthScore: 80, calories: 40, carbs: 9, protein: 1, fat: 0, fiber: 1, category: '野菜', isHealthy: true, keywords: ['onion', 'red onion', 'オニオン', '玉ねぎ', 'たまねぎ'] },
+    'pepper': { healthScore: 85, calories: 30, carbs: 6, protein: 1, fat: 0, fiber: 2, category: '野菜', isHealthy: true, keywords: ['pepper', 'bell pepper', 'capsicum', 'パプリカ'] },
+    'herb': { healthScore: 90, calories: 5, carbs: 1, protein: 0, fat: 0, fiber: 0, category: 'ハーブ', isHealthy: true, keywords: ['cilantro', 'parsley', 'herb', 'コリアンダー', 'パクチー', 'パセリ'] },
   }
 
   let totalCalories = 0
@@ -241,9 +247,23 @@ function analyzeNutrition(ingredients: string[]): {
   const vitamins: string[] = []
   const detectedFoods: string[] = []
 
+  // 通用 StopWord，過濾非食物相關泛用詞
+  const stopWords = [
+    'food', 'meal', 'dinner', 'lunch', 'breakfast', 'dish', 'cooking', 'nutrition', 'health',
+    'taste', 'delicious', 'traditional', 'homemade', 'ready', 'horizontal', 'vertical', 'isolate',
+    'no person', 'ingredients', 'wood', 'indoors', 'hot', 'cold'
+  ]
+
   // 分析每个识别的食材
   ingredients.forEach(ingredient => {
-    const key = ingredient.toLowerCase()
+    const keyOriginal = ingredient.toLowerCase().trim()
+
+    // 若屬於 StopWord，直接跳過
+    if (stopWords.includes(keyOriginal)) {
+      return
+    }
+
+    const key = keyOriginal
     let found = false
     
     // 更智能的匹配算法
@@ -283,21 +303,20 @@ function analyzeNutrition(ingredients: string[]): {
       }
     }
     
-    // 如果没有找到匹配，给更低的默认分数
+    // 如果没有找到匹配，給中立分數（不視為垃圾食物）
     if (!found) {
-      totalCalories += 200  // 假设是高热量食品
-      totalCarbs += 25
-      totalProtein += 8
-      totalFat += 10
+      totalCalories += 150  // 假設中等熱量
+      totalCarbs += 15
+      totalProtein += 5
+      totalFat += 5
       totalFiber += 1
-      healthScoreSum += 35  // 降低默认分数从60到35
+      healthScoreSum += 60  // 未分類但大概率是配料，給較高中立分
       count++
-      unhealthyFoodCount++  // 未知食品视为不健康
       
       categories.push({
-        name: '未分類（おそらくジャンク）',
-        confidence: 40,
-        isHealthy: false
+        name: '未分類',
+        confidence: 30,
+        isHealthy: true
       })
     }
   })
@@ -312,6 +331,11 @@ function analyzeNutrition(ingredients: string[]): {
   // 如果全是垃圾食品，强制低分
   if (unhealthyFoodCount === count && count > 0) {
     avgHealthScore = Math.min(avgHealthScore, 25)
+  }
+
+  // 💚 健康加成：若無垃圾食品，最低 +10 分，最高 95
+  if (unhealthyFoodCount === 0 && avgHealthScore < 75) {
+    avgHealthScore = Math.min(95, avgHealthScore + 15)
   }
 
   // 生成更尖锐的评价信息
