@@ -541,12 +541,12 @@ export default function HomePage() {
               <span className="text-xs font-bold text-purple-800">履歴</span>
             </Link>
             
-            <button className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
+            <Link href="/shop" className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
               <div className="bg-green-100 rounded-full p-2">
                 <ShoppingBag className="w-5 h-5 text-green-600" />
               </div>
               <span className="text-xs font-bold text-purple-800">商店</span>
-            </button>
+            </Link>
           </div>
         </div>
       </div>
