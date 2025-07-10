@@ -62,7 +62,7 @@ export default function SignupPage() {
         level: 1,
         healthScore: 50,
         appearance: {
-          imageUrl: 'https://via.placeholder.com/200x250/4F46E5/FFFFFF?text=🧸',
+          imageUrl: '/kukupin-character.png',
           bodyType: 'normal',
           style: 'normal',
           color: '#4F46E5'
@@ -112,7 +112,7 @@ export default function SignupPage() {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">新規登録</h2>
           <p className="mt-2 text-gray-600">
-            TAMAGOHANアカウントを作成してください
+                          くっくぴんアカウントを作成してください
           </p>
         </div>
 

@@ -8,7 +8,7 @@ import Navigation from '@/components/Navigation'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'TAMAGOHAN - 食事记录育成游戏',
+  title: 'くっくぴん( Kukupin - 食事记录育成游戏',
   description: '通过食事记录培养你的虚拟角色',
 }
 

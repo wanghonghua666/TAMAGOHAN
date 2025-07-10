@@ -9,7 +9,7 @@ export default function MealPage() {
   // 禁用登录检查，使用游客模式
   const guestUser = {
     id: 'guest-user',
-    email: 'guest@tamagohan.com',
+    email: 'guest@kukupin.com',
     displayName: 'ゲストユーザー'
   }
   

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Camera, BarChart3, Heart, Trophy, Star, Sparkles } from 'lucide-react'
 
 export default function WelcomeScreen() {
@@ -62,7 +63,7 @@ export default function WelcomeScreen() {
             
             <div className="relative inline-block mb-8">
               <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 mb-4 bounce-animation" style={{ fontFamily: 'Fredoka One' }}>
-                TAMAGOHAN
+                くっくぴん
               </h1>
               <div className="absolute -top-6 -right-12 text-4xl animate-spin">⭐</div>
               <div className="absolute -bottom-6 -left-12 text-4xl wiggle-animation">✨</div>
@@ -94,7 +95,7 @@ export default function WelcomeScreen() {
             <div className="text-center mb-12">
               <h2 className="text-4xl font-black text-purple-800 mb-4 flex items-center justify-center gap-2" style={{ fontFamily: 'Fredoka One' }}>
                 <Star className="w-8 h-8 text-yellow-500" />
-                TAMAGOHANの特徴
+                くっくぴんの特徴
                 <Star className="w-8 h-8 text-yellow-500" />
               </h2>
             </div>
@@ -144,7 +145,14 @@ export default function WelcomeScreen() {
               </div>
               
               <div className="bg-white rounded-3xl p-6 shadow-2xl border-4 border-purple-300 transform transition-all duration-300 hover:scale-105">
-                <div className="text-6xl mb-4 float-animation">🧸</div>
+                <div className="mb-4 float-animation flex justify-center">
+                  <Image
+                    src="/kukupin-character.png"
+                    alt="くっくぴん"
+                    width={64}
+                    height={64}
+                  />
+                </div>
                 <h3 className="text-2xl font-black mb-2 text-purple-800" style={{ fontFamily: 'Fredoka One' }}>3. キャラ育成</h3>
                 <p className="text-purple-600 font-semibold" style={{ fontFamily: 'Fredoka' }}>
                   健康スコアに応じてキャラクターが成長
@@ -162,7 +170,7 @@ export default function WelcomeScreen() {
             </h2>
             <div className="bg-white/90 rounded-3xl p-6 max-w-3xl mx-auto mb-8 border-4 border-yellow-300">
               <p className="text-purple-800 font-bold text-lg" style={{ fontFamily: 'Fredoka' }}>
-                TAMAGOHANと一緒に、楽しく続けられる健康管理を始めましょう。<br />
+                くっくぴんと一緒に、楽しく続けられる健康管理を始めましょう。<br />
                 あなたの食事習慣が、可愛いキャラクターの成長につながります。
               </p>
             </div>

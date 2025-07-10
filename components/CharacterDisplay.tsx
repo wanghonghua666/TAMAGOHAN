@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { Heart, Star } from 'lucide-react'
+import Image from 'next/image'
 
 // 简化的角色类型
 interface SimpleCharacter {
@@ -9,7 +10,6 @@ interface SimpleCharacter {
   level: number
   healthScore: number
   mood: string
-  emoji: string
 }
 
 export default function CharacterDisplay() {
@@ -22,8 +22,7 @@ export default function CharacterDisplay() {
       name: 'たまごちゃん',
       level: 5,
       healthScore: 78,
-      mood: 'happy',
-      emoji: '🧸'
+      mood: 'happy'
     }
 
     setTimeout(() => {
@@ -107,8 +106,14 @@ export default function CharacterDisplay() {
           <div className="flex-1 flex items-end justify-center relative" style={{ minHeight: '400px', paddingBottom: '60px' }}>
             {/* 角色直接放在地毯上 */}
             <div className="relative" style={{ transform: 'translateY(50px)' }}>
-              <div className="text-[12rem] leading-none bounce-animation drop-shadow-2xl">
-                {character.emoji}
+              <div className="bounce-animation drop-shadow-2xl">
+                <Image
+                  src="/kukupin-character.png"
+                  alt="くっくぴん角色"
+                  width={180}
+                  height={180}
+                  className="mx-auto"
+                />
               </div>
               
               {/* 心情状态指示器 - 浮动在角色旁边 */}

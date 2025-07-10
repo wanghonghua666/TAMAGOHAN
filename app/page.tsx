@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
 import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
@@ -77,19 +78,44 @@ export default function HomePage() {
     }
   }, [healthScore, lastMealScore, isClient])
 
-  // 获取小熊表情
-  const getPetEmoji = () => {
-    switch (petMood) {
-      case 'dead':
-        return '💀'
-      case 'sick':
-        return '🤢'
-      case 'excited':
-        return '🧸'
-      case 'happy':
-      default:
-        return '🧸'
+  // 获取小熊组件
+  const getPetComponent = (size: 'large' | 'small' = 'large') => {
+    // 根据心情状态选择不同的效果
+    const getClassName = () => {
+      switch (petMood) {
+        case 'dead':
+          return 'grayscale shake-animation'
+        case 'sick':
+          return 'opacity-80 wiggle-animation'
+        case 'excited':
+          return 'bounce-animation'
+        case 'happy':
+        default:
+          return 'bounce-animation'
+      }
     }
+
+    const dimensions = size === 'large' ? { width: 200, height: 200 } : { width: 120, height: 120 }
+    const emojiSize = size === 'large' ? 'text-[200px]' : 'text-[120px]'
+
+    // 对于死亡和生病状态，仍然使用emoji
+    if (petMood === 'dead') {
+      return <div className={`${emojiSize} shake-animation`}>💀</div>
+    }
+    if (petMood === 'sick') {
+      return <div className={`${emojiSize} wiggle-animation`}>🤢</div>
+    }
+
+    // 健康和兴奋状态使用图片
+    return (
+      <Image
+        src="/kukupin-character.png"
+        alt="くっくぴん"
+        width={dimensions.width}
+        height={dimensions.height}
+        className={getClassName()}
+      />
+    )
   }
 
   // 获取小熊状态消息
@@ -167,7 +193,15 @@ export default function HomePage() {
       >
         <div className="h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="text-[200px] bounce-animation">🧸</div>
+            <div className="bounce-animation mb-4">
+              <Image
+                src="/kukupin-character.png"
+                alt="くっくぴん"
+                width={200}
+                height={200}
+                className="mx-auto"
+              />
+            </div>
             <div className="bg-white/95 rounded-full px-6 py-3 shadow-lg">
               <p className="text-xl font-bold text-purple-800">読み込み中...</p>
             </div>
@@ -340,8 +374,8 @@ export default function HomePage() {
                 <div className="text-center">
                   {/* 宠物角色 */}
                   <div className="relative mb-4">
-                    <div className={`text-[200px] ${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
-                      {getPetEmoji()}
+                    <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
+                      {getPetComponent()}
                     </div>
                     {petMood === 'excited' && (
                       <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
@@ -476,8 +510,8 @@ export default function HomePage() {
               <div className="text-center">
                 {/* 宠物角色 */}
                 <div className="relative mb-4">
-                  <div className={`text-[120px] ${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
-                    {getPetEmoji()}
+                  <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
+                    {getPetComponent('small')}
                   </div>
                   {petMood === 'excited' && (
                     <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>

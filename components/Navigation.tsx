@@ -24,7 +24,7 @@ export default function Navigation() {
             <div className="w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-3 border-white bounce-animation">
               <span className="text-2xl">🥚</span>
             </div>
-            <span className="text-2xl font-black text-white" style={{ fontFamily: 'Fredoka One' }}>TAMAGOHAN</span>
+            <span className="text-2xl font-black text-white" style={{ fontFamily: 'Fredoka One' }}>くっくぴん</span>
           </Link>
 
           {/* デスクトップナビゲーション */}

@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => {
         const demoUser: User = {
           id: 'demo-user-123',
-          email: 'demo@tamagohan.app',
+          email: 'demo@kukupin.app',
           displayName: 'Demo User',
           photoURL: undefined,
           createdAt: new Date(),

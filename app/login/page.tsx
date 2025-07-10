@@ -59,7 +59,7 @@ export default function LoginPage() {
           </Link>
           <h2 className="text-3xl font-bold text-gray-900">ログイン</h2>
           <p className="mt-2 text-gray-600">
-            TAMAGOHANアカウントにログインしてください
+                          くっくぴんアカウントにログインしてください
           </p>
         </div>
 
@@ -162,7 +162,7 @@ export default function LoginPage() {
             デモアカウントでお試しいただけます
           </p>
           <div className="text-xs text-gray-500">
-            <p>メール: demo@tamagohan.app</p>
+                          <p>メール: demo@kukupin.app</p>
             <p>パスワード: demo123456</p>
           </div>
         </div>
