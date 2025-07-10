@@ -95,8 +95,9 @@ export default function HomePage() {
       }
     }
 
-    const dimensions = size === 'large' ? { width: 200, height: 200 } : { width: 120, height: 120 }
-    const emojiSize = size === 'large' ? 'text-[200px]' : 'text-[120px]'
+    const dimensions = size === 'large' ? { width: 1000, height: 1000 } : { width: 300, height: 300 }
+    const emojiSize = size === 'large' ? 'text-[1000px]' : 'text-[300px]'
+    const scaleClass = size === 'large' ? 'scale-150' : 'scale-100'
 
     // 对于死亡和生病状态，仍然使用emoji
     if (petMood === 'dead') {
@@ -113,7 +114,7 @@ export default function HomePage() {
         alt="くっくぴん"
         width={dimensions.width}
         height={dimensions.height}
-        className={getClassName()}
+        className={`${getClassName()} ${scaleClass}`}
       />
     )
   }
@@ -362,13 +363,20 @@ export default function HomePage() {
               {/* 互动提示 */}
               <div className="absolute top-4 left-4 bg-white/90 rounded-full px-4 py-2 shadow-lg z-20">
                 <span className="text-sm font-bold text-purple-800">👆 タップして遊ぼう！</span>
-      </div>
+              </div>
+
+              {/* 桌面版對話氣泡 - 固定左上角 */}
+              <div className={`hidden lg:block absolute top-6 left-6 max-w-xs rounded-2xl px-4 py-3 shadow-xl ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative z-30`}>
+                {/* 气泡尾巴 */}
+                <div className={`absolute -bottom-2 left-10 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
+                <p className={`text-lg font-bold leading-tight ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>{getPetMessage()}</p>
+              </div>
 
               {/* 移除3D地毯效果，使用图片原有的地毯 */}
 
               {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-[120px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-[70px] lg:bottom-[10px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
                 onClick={handlePetClick}
               >
                 <div className="text-center">
@@ -391,9 +399,11 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {/* 宠物状态文字 - 移到上方 */}
-                  <div className={`absolute -top-16 left-1/2 transform -translate-x-1/2 rounded-full px-6 py-3 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
-                    <p className={`text-xl font-bold ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
+                  {/* 对话气泡 - 放在角色左上角（移动端保留） */}
+                  <div className={`absolute -top-8 -left-16 max-w-xs rounded-2xl px-4 py-3 shadow-xl lg:hidden ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative`}>
+                    {/* 气泡尾巴 */}
+                    <div className={`absolute bottom-[-8px] right-8 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
+                    <p className={`text-lg font-bold leading-tight ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
                       {getPetMessage()}
                     </p>
                   </div>
@@ -502,36 +512,40 @@ export default function HomePage() {
 
             {/* 移除3D地毯效果 */}
 
+            {/* 对话气泡 - 手机版，放在顶部 */}
+            <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 z-20">
+              <div className={`max-w-[280px] rounded-2xl px-4 py-3 shadow-xl ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative`}>
+                {/* 气泡尾巴 */}
+                <div className={`absolute -bottom-[10px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
+                <p className={`text-base font-bold leading-tight text-center ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
+                  {getPetMessage()}
+                </p>
+              </div>
+            </div>
+
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-[80px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-[40px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
               onClick={handlePetClick}
             >
               <div className="text-center">
-                {/* 宠物角色 */}
+                {/* 宠物角色 - 使用大尺寸 */}
                 <div className="relative">
                   <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
-                    {getPetComponent('small')}
+                    {getPetComponent('large')}
                   </div>
                   {petMood === 'excited' && (
-                    <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
+                    <div className="absolute -top-8 -right-8 text-6xl wiggle-animation">💫</div>
                   )}
                   {petMood === 'sick' && (
-                    <div className="absolute -top-4 -left-4 text-3xl float-animation">🤧</div>
+                    <div className="absolute -top-8 -left-8 text-5xl float-animation">🤧</div>
                   )}
                   {petMood === 'dead' && (
-                    <div className="absolute -bottom-4 -right-4 text-3xl pulse-animation">⚰️</div>
+                    <div className="absolute -bottom-8 -right-8 text-5xl pulse-animation">⚰️</div>
                   )}
                   {lastFed > 3 && petMood === 'happy' && (
-                    <div className="absolute -bottom-4 -left-4 text-3xl float-animation">😋</div>
+                    <div className="absolute -bottom-8 -left-8 text-5xl float-animation">😋</div>
                   )}
-                </div>
-
-                {/* 宠物状态文字 - 移到上方 */}
-                <div className={`absolute -top-14 left-1/2 transform -translate-x-1/2 rounded-full px-4 py-2 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
-                  <p className={`text-lg font-bold ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
-                    {getPetMessage()}
-                  </p>
                 </div>
               </div>
             </div>

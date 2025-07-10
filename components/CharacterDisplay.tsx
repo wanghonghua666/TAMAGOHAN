@@ -110,8 +110,8 @@ export default function CharacterDisplay() {
                 <Image
                   src="/kukupin.png"
                   alt="くっくぴん角色"
-                  width={180}
-                  height={180}
+                  width={720}
+                  height={720}
                   className="mx-auto"
                 />
               </div>
@@ -123,8 +123,8 @@ export default function CharacterDisplay() {
             </div>
           </div>
 
-          {/* 对话气泡 - 移到角色上方 */}
-          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20">
+          {/* 对话气泡 - 桌面版放左上角，移动端仍居中 */}
+          <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20 lg:top-8 lg:left-8 lg:transform-none">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-4 shadow-lg border-4 border-pink-300 max-w-xs relative">
               <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[20px] border-r-[20px] border-t-[20px] border-l-transparent border-r-transparent border-t-white"></div>
               <p className="text-purple-800 font-black text-lg text-center" style={{ fontFamily: 'Fredoka' }}>
