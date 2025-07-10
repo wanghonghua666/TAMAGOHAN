@@ -200,13 +200,7 @@ html {
   }
 }
 
-/* 地毯阴影效果 */
-.carpet-shadow {
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
-}
+
 
 /* 健康分数颜色渐变 */
 .health-critical { color: #dc2626; }

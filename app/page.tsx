@@ -368,12 +368,12 @@ export default function HomePage() {
 
               {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-8 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-[120px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
                 onClick={handlePetClick}
               >
                 <div className="text-center">
                   {/* 宠物角色 */}
-                  <div className="relative mb-4">
+                  <div className="relative">
                     <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
                       {getPetComponent()}
                     </div>
@@ -391,12 +391,12 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {/* 宠物状态文字 */}
-                  <div className={`rounded-full px-6 py-3 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
+                  {/* 宠物状态文字 - 移到上方 */}
+                  <div className={`absolute -top-16 left-1/2 transform -translate-x-1/2 rounded-full px-6 py-3 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
                     <p className={`text-xl font-bold ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
                       {getPetMessage()}
-        </p>
-      </div>
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -504,12 +504,12 @@ export default function HomePage() {
 
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-6 left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-[80px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
               onClick={handlePetClick}
             >
               <div className="text-center">
                 {/* 宠物角色 */}
-                <div className="relative mb-4">
+                <div className="relative">
                   <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
                     {getPetComponent('small')}
                   </div>
@@ -527,8 +527,8 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* 宠物状态文字 */}
-                <div className={`rounded-full px-4 py-2 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
+                {/* 宠物状态文字 - 移到上方 */}
+                <div className={`absolute -top-14 left-1/2 transform -translate-x-1/2 rounded-full px-4 py-2 shadow-lg ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'}`}>
                   <p className={`text-lg font-bold ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
                     {getPetMessage()}
                   </p>
