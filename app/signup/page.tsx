@@ -62,7 +62,7 @@ export default function SignupPage() {
         level: 1,
         healthScore: 50,
         appearance: {
-          imageUrl: '/kukupin-character.png',
+          imageUrl: '/kukupin.png',
           bodyType: 'normal',
           style: 'normal',
           color: '#4F46E5'

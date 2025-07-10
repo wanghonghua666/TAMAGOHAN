@@ -147,7 +147,7 @@ export default function WelcomeScreen() {
               <div className="bg-white rounded-3xl p-6 shadow-2xl border-4 border-purple-300 transform transition-all duration-300 hover:scale-105">
                 <div className="mb-4 float-animation flex justify-center">
                   <Image
-                    src="/kukupin-character.png"
+                    src="/kukupin.png"
                     alt="くっくぴん"
                     width={64}
                     height={64}

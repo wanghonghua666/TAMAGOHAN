@@ -108,7 +108,7 @@ export default function CharacterDisplay() {
             <div className="relative" style={{ transform: 'translateY(50px)' }}>
               <div className="bounce-animation drop-shadow-2xl">
                 <Image
-                  src="/kukupin-character.png"
+                  src="/kukupin.png"
                   alt="くっくぴん角色"
                   width={180}
                   height={180}

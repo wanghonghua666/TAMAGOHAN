@@ -109,7 +109,7 @@ export default function HomePage() {
     // 健康和兴奋状态使用图片
     return (
       <Image
-        src="/kukupin-character.png"
+        src="/kukupin.png"
         alt="くっくぴん"
         width={dimensions.width}
         height={dimensions.height}
@@ -195,7 +195,7 @@ export default function HomePage() {
           <div className="text-center">
             <div className="bounce-animation mb-4">
               <Image
-                src="/kukupin-character.png"
+                src="/kukupin.png"
                 alt="くっくぴん"
                 width={200}
                 height={200}
