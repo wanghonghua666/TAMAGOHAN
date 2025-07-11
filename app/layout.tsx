@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import Navigation from '@/components/Navigation'
+import ConsentGate from '@/components/ConsentGate'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -35,6 +36,8 @@ export default function RootLayout({
               <main className="container mx-auto px-4 py-8">
                 {children}
               </main>
+              {/* 全局同意弹窗 */}
+              <ConsentGate />
             </div>
           </div>
         </AuthProvider>
