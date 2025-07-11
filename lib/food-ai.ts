@@ -530,7 +530,7 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
     })
     
     // 保存健康数据到localStorage
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && localStorage.getItem('kukupin-consent')==='1') {
       console.log('5. 保存数据到本地存储...')
       // 保存最后一餐的分数
       localStorage.setItem('last-meal-score', analysis.healthScore.toString())

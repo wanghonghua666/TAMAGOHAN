@@ -158,8 +158,12 @@ export default function MealPage() {
 
     try {
       // ゲストモードでは localStorage に保存
+      const hasConsent = localStorage.getItem('kukupin-consent')==='1'
+      if(!hasConsent){
+        alert('ゲストモードでは同意を得るまでデータは保存されません。設定パネルから同意してください。')
+      }
       const historyKey = 'meal-history'
-      const existing = JSON.parse(localStorage.getItem(historyKey) || '[]')
+      const existing = hasConsent ? JSON.parse(localStorage.getItem(historyKey) || '[]') : []
       const newRecord = {
         id: Date.now(),
         fileName: selectedFile.name,
@@ -167,8 +171,10 @@ export default function MealPage() {
         analysis: analysisResult,
         preview: preview
       }
-      const updated = [newRecord, ...existing].slice(0, 50) // 最多保留50条
-      localStorage.setItem(historyKey, JSON.stringify(updated))
+      if(hasConsent){
+        const updated = [newRecord, ...existing].slice(0, 50)
+        localStorage.setItem(historyKey, JSON.stringify(updated))
+      }
 
       console.log('ゲストモード - 保存完了', newRecord)
       

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
 import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag, BookOpen } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
+import ConsentModal from '@/components/ConsentModal'
 import { storeItems } from '@/lib/store-items'
 
 // 背景配置 - 使用正确的图片路径
@@ -33,6 +34,9 @@ export default function HomePage() {
   const [isClient, setIsClient] = useState(false) // 添加客户端检查
   const [isDesktop, setIsDesktop] = useState(false)
   const [purchasedItems, setPurchasedItems] = useState<string[]>([])
+  const [consent, setConsent] = useState(
+    typeof window !== 'undefined' && localStorage.getItem('kukupin-consent')==='1'
+  )
 
   // 当形态变化时写入图鉴解锁
   useEffect(() => {
@@ -693,6 +697,7 @@ export default function HomePage() {
           </div>
         </div>
       )}
+      { !consent && <ConsentModal onAccept={()=>{localStorage.setItem('kukupin-consent','1');setConsent(true)}} /> }
     </div>
   )
 } 
