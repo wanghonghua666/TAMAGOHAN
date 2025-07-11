@@ -21,7 +21,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className={inter.className}>
         <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-br from-pink-100 via-purple-100 to-yellow-100 relative overflow-hidden">
+          <div className="min-h-screen bg-gradient-to-br from-amber-100 via-amber-200 to-yellow-100 relative overflow-hidden">
             {/* 全局游戏装饰背景 */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-30">
               <div className="absolute top-10 left-10 text-2xl opacity-50 float-animation">🌟</div>

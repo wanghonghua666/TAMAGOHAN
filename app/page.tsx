@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
-import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag } from 'lucide-react'
+import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag, BookOpen } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
 import { storeItems } from '@/lib/store-items'
 
@@ -22,17 +22,42 @@ export default function HomePage() {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [currentBackground, setCurrentBackground] = useState(0)
   const [showBackgroundSelector, setShowBackgroundSelector] = useState(false)
-  const [petMood, setPetMood] = useState<'happy' | 'excited' | 'sick' | 'dead'>('happy')
+  const [petMood, setPetMood] = useState<'happy' | 'strong' | 'sick' | 'dead' | 'fat' | 'indian'>('happy')
   const [lastFed, setLastFed] = useState(2) // 小时
   const [healthScore, setHealthScore] = useState(85) // 健康分数
   const [lastMealScore, setLastMealScore] = useState(null as number | null) // 最后一餐的分数
+  const [proteinValue, setProteinValue] = useState(0)
+  const [fatValue, setFatValue] = useState(0)
+  const [indianMode, setIndianMode] = useState(false)
+  const [showDex, setShowDex] = useState(false)
   const [isClient, setIsClient] = useState(false) // 添加客户端检查
+  const [isDesktop, setIsDesktop] = useState(false)
   const [purchasedItems, setPurchasedItems] = useState<string[]>([])
+
+  // 当形态变化时写入图鉴解锁
+  useEffect(() => {
+    if (!isClient) return
+    const key = `dex-${petMood}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, 'unlocked')
+    }
+  }, [petMood, isClient])
 
   // 客户端检查
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // 侦测窗口尺寸用于切换桌面背景
+  useEffect(() => {
+    if (!isClient) return
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [isClient])
 
   // 小熊状态逻辑 - 只在客户端执行
   useEffect(() => {
@@ -56,27 +81,51 @@ export default function HomePage() {
         const hoursAgo = Math.floor((now - fedTime) / (1000 * 60 * 60))
         setLastFed(hoursAgo)
       }
+      const savedProtein = localStorage.getItem('protein-value')
+      if (savedProtein) setProteinValue(parseInt(savedProtein))
+      const savedFat = localStorage.getItem('fat-value')
+      if (savedFat) setFatValue(parseInt(savedFat))
+      const savedIndian = localStorage.getItem('indian-mode')
+      setIndianMode(!!savedIndian)
+
+      // ===== 默认基准值 =====
+      if (!savedHealthScore) {
+        const base = 75
+        localStorage.setItem('pet-health-score', base.toString())
+        setHealthScore(base)
+      }
+      if (!savedProtein) {
+        localStorage.setItem('protein-value', '0')
+      }
+      if (!savedFat) {
+        localStorage.setItem('fat-value', '0')
+      }
     }
   }, [isClient])
 
-  // 根据健康分数和最后一餐决定小熊状态
+  // 根据各项指标决定小熊状态
   useEffect(() => {
     if (!isClient) return // 防止hydration错误
     
-    if (lastMealScore !== null && lastMealScore < 20) {
-      // 吃了低于20分的食物 -> 🤢
+    const proteinThreshold = 75
+    const fatThreshold = 75
+
+    if (indianMode) {
+      setPetMood('indian')
+    } else if (lastMealScore !== null && lastMealScore < 20) {
       setPetMood('sick')
+    } else if (fatValue >= fatThreshold) {
+      setPetMood('fat')
     } else if (healthScore < 30) {
-      // 健康分数很低 -> 💀
       setPetMood('dead')
+    } else if (proteinValue >= proteinThreshold) {
+      setPetMood('strong')
     } else if (healthScore > 80) {
-      // 健康分数很高 -> 开心
-      setPetMood('excited')
+      setPetMood('happy')
     } else {
-      // 普通状态
       setPetMood('happy')
     }
-  }, [healthScore, lastMealScore, isClient])
+  }, [healthScore, lastMealScore, proteinValue, fatValue, indianMode, isClient])
 
   // 获取小熊组件
   const getPetComponent = (size: 'large' | 'small' = 'large') => {
@@ -86,8 +135,12 @@ export default function HomePage() {
         case 'dead':
           return 'grayscale shake-animation'
         case 'sick':
-          return 'opacity-80 wiggle-animation'
-        case 'excited':
+          return 'wiggle-animation'
+        case 'fat':
+          return 'wiggle-animation'
+        case 'indian':
+          return 'bounce-animation'
+        case 'strong':
           return 'bounce-animation'
         case 'happy':
         default:
@@ -96,29 +149,33 @@ export default function HomePage() {
     }
 
     // 桌面版使用更大尺寸,移动版使用较小尺寸
-    const dimensions = size === 'large' ? { width: 1000, height: 1000 } : { width: 300, height: 300 }
+    const dimensions = size === 'large' ? { width: 1000, height: 1000 } : { width: 400, height: 400 }
     // 在桌面版使用较为合适的尺寸，并随着屏幕继续变大渐进放大，防止过度膨胀导致位置错乱
     const emojiSize = size === 'large' 
       ? 'text-[320px] lg:text-[400px] xl:text-[480px]' // 调整Emoji大小（响应式）
       : 'text-[180px]'
     const scaleClass = size === 'large' ? 'scale-110' : 'scale-100'
 
-    // 对于死亡和生病状态，使用emoji
-    if (petMood === 'dead') {
-      return <div className={`${emojiSize} shake-animation`}>💀</div>
-    }
-    if (petMood === 'sick') {
-      return <div className={`${emojiSize} wiggle-animation`}>🤢</div>
+    // 根据心情选择图片资源
+    const moodImageMap: Record<string, string> = {
+      dead: '/kukupinDead.png',
+      sick: '/KukupinPuke.png',
+      strong: '/KukupinStrong.png',
+      fat: '/kukupinFatDebu-Photoroom.png',
+      indian: '/kukupinIndian.png',
+      happy: '/kukupinHappy.png',
     }
 
-    // 健康和兴奋状态使用图片
+    const src = moodImageMap[petMood] || '/kukupinHappy.png'
+
     return (
       <Image
-        src="/kukupin.png"
+        src={src}
         alt="くっくぴん"
         width={dimensions.width}
         height={dimensions.height}
         className={`${getClassName()} ${scaleClass}`}
+        priority
       />
     )
   }
@@ -130,7 +187,11 @@ export default function HomePage() {
         return 'やばい...もっと健康的な食事を！💀'
       case 'sick':
         return 'うえぇ...ジャンクフードで気持ち悪い 🤢'
-      case 'excited':
+      case 'fat':
+        return 'ちょっと太りすぎかも...運動しよう！🍩'
+      case 'indian':
+        return 'カレー三昧！スパイシーだよ🌶️'
+      case 'strong':
         return '元気だよ！健康的な食事ありがとう！✨'
       case 'happy':
       default:
@@ -140,7 +201,7 @@ export default function HomePage() {
 
   // 处理小熊点击
   const handlePetClick = () => {
-    if (petMood === 'excited') {
+    if (petMood === 'strong') {
       // 添加额外动画或效果
       console.log('Pet is very happy!')
     }
@@ -220,7 +281,7 @@ export default function HomePage() {
     <div 
       className="min-h-screen relative overflow-hidden"
       style={{
-        backgroundImage: `url('${backgrounds[currentBackground].path}')`,
+        backgroundImage: `url('${isDesktop ? '/background2.png' : backgrounds[currentBackground].path}')`,
         backgroundSize: '100% 100%',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -255,43 +316,7 @@ export default function HomePage() {
         })}
       </div>
 
-      {/* 背景切换按钮 */}
-      <div className="absolute top-4 left-4 z-40">
-        <div className="relative">
-          <button
-            onClick={() => setShowBackgroundSelector(!showBackgroundSelector)}
-            className="bg-black/20 rounded-full p-3 shadow-lg hover:bg-black/30 transition-all duration-200"
-            aria-label="背景切換"
-          >
-            <Palette className="w-5 h-5 text-white" />
-          </button>
-          
-          {/* 背景选择器 */}
-          {showBackgroundSelector && (
-            <div className="absolute top-14 left-0 bg-white/95 rounded-xl p-4 shadow-xl min-w-[180px] z-50">
-              <h3 className="text-sm font-bold text-gray-800 mb-3">背景を選択</h3>
-              <div className="space-y-2">
-                {backgrounds.map((bg, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleBackgroundChange(index)}
-                    className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 ${
-                      currentBackground === index 
-                        ? 'bg-purple-100 text-purple-800 font-bold' 
-                        : 'hover:bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${bg.gradient}`}></div>
-                      <span className="text-sm">{bg.name}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* 背景切换按钮 - 已隐藏 */}
 
       {/* 主游戏界面 */}
       <div className="h-screen flex flex-col relative z-10">
@@ -347,6 +372,28 @@ export default function HomePage() {
                   <div className="stat-fill bg-gradient-to-r from-orange-400 to-red-500 w-[65%]"></div>
                 </div>
               </div>
+
+              {/* タンパク質 */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-700">💪 タンパク質</span>
+                  <span className="text-lg font-black text-purple-600">{proteinValue}</span>
+                </div>
+                <div className="stat-bar">
+                  <div className={`stat-fill bg-gradient-to-r from-purple-400 to-purple-600 w-[${Math.min(100, Math.round(proteinValue/2))}%]`}></div>
+                </div>
+              </div>
+
+              {/* 脂肪 */}
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-700">🍩 脂肪</span>
+                  <span className="text-lg font-black text-pink-600">{fatValue}</span>
+                </div>
+                <div className="stat-bar">
+                  <div className={`stat-fill bg-gradient-to-r from-pink-400 to-red-600 w-[${Math.min(100, Math.round(fatValue/2))}%]`}></div>
+                </div>
+              </div>
             </div>
 
             {/* 时间显示 */}
@@ -382,16 +429,16 @@ export default function HomePage() {
 
               {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-[70px] lg:bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-[40px] lg:bottom-[10px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
                 onClick={handlePetClick}
               >
                 <div className="text-center">
                   {/* 宠物角色 */}
                   <div className="relative">
-                    <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
+                    <div className={`${petMood === 'strong' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
                       {getPetComponent('large')}
                     </div>
-                    {petMood === 'excited' && (
+                    {petMood === 'strong' && (
                       <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
                     )}
                     {petMood === 'sick' && (
@@ -417,7 +464,7 @@ export default function HomePage() {
               </div>
 
               {/* 分离的互动按钮区域 - 删除药物按钮 */}
-              <div className="absolute top-1/3 right-8 flex flex-col space-y-4">
+              <div className="absolute top-1/2 -translate-y-1/2 right-8 flex flex-col space-y-4">
                 <Link href="/meal">
                   <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">
                     🍽️ 食事をあげる
@@ -489,7 +536,7 @@ export default function HomePage() {
         {/* 手机版布局 */}
         <div className="lg:hidden flex flex-col h-full p-2">
           {/* 手机版顶部状态栏 */}
-          <div className="bg-white/95 rounded-2xl p-3 mb-3 shadow-xl border-2 border-white/50">
+          <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-3 mb-3 shadow-lg border border-white/30">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-1">
@@ -506,6 +553,12 @@ export default function HomePage() {
                   {formatTime(currentTime)}
                 </div>
               </div>
+            </div>
+            <div className="flex items-center space-x-1">
+                <span className="text-purple-600 font-bold">💪 {proteinValue}</span>
+            </div>
+            <div className="flex items-center space-x-1">
+                <span className="text-pink-600 font-bold">🍩 {fatValue}</span>
             </div>
           </div>
 
@@ -531,16 +584,16 @@ export default function HomePage() {
 
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
               onClick={handlePetClick}
             >
               <div className="text-center">
                 {/* 宠物角色 - 使用小尺寸 */}
                 <div className="relative">
-                  <div className={`${petMood === 'excited' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
+                  <div className={`${petMood === 'strong' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
                     {getPetComponent('small')}
                   </div>
-                  {petMood === 'excited' && (
+                  {petMood === 'strong' && (
                     <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
                   )}
                   {petMood === 'sick' && (
@@ -557,7 +610,7 @@ export default function HomePage() {
             </div>
 
             {/* 手机版互动按钮 - 删除药物按钮 */}
-            <div className="absolute top-1/4 right-4 flex flex-col space-y-3">
+            <div className="absolute top-1/2 -translate-y-1/2 right-4 flex flex-col space-y-3">
               <Link href="/meal">
                 <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-sm py-3 px-4 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">
                   🍽️ 食事
@@ -595,12 +648,12 @@ export default function HomePage() {
               <span className="text-xs font-bold text-purple-800">履歴</span>
             </Link>
             
-            <Link href="/shop" className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
+            <button onClick={()=>setShowDex(true)} className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
               <div className="bg-green-100 rounded-full p-2">
-                <ShoppingBag className="w-5 h-5 text-green-600" />
+                <BookOpen className="w-5 h-5 text-green-600" />
               </div>
-              <span className="text-xs font-bold text-purple-800">商店</span>
-            </Link>
+              <span className="text-xs font-bold text-purple-800">図鑑</span>
+            </button>
           </div>
         </div>
       </div>
@@ -609,6 +662,37 @@ export default function HomePage() {
       <div className="fixed bottom-4 right-4 max-w-sm z-50">
         <DemoNotice />
       </div>
+      {showDex && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999]" onClick={()=>setShowDex(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full" onClick={e=>e.stopPropagation()}>
+            <h2 className="text-xl font-black text-purple-800 mb-4 text-center">くっくぴん図鑑</h2>
+            <div className="grid grid-cols-3 gap-4">
+              {['default','strong','fat','sick','dead','indian'].map(form=>{
+                const unlocked = form==='default' || (typeof window!=='undefined' && localStorage.getItem(`dex-${form}`))
+                const imgMap: Record<string,string> = {
+                  default:'/kukupinHappy.png',
+                  strong:'/KukupinStrong.png',
+                  fat:'/kukupinFatDebu-Photoroom.png',
+                  sick:'/KukupinPuke.png',
+                  dead:'/kukupinDead.png',
+                  indian:'/kukupinIndian.png'
+                }
+                return (
+                  <div key={form} className="flex flex-col items-center">
+                    {unlocked ? (
+                      <Image src={imgMap[form]} alt={form} width={80} height={80} />
+                    ) : (
+                      <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-3xl text-gray-600">?</div>
+                    )}
+                    <span className="text-xs font-bold mt-1">{form}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <button className="mt-4 mx-auto block bg-purple-500 text-white font-bold px-4 py-2 rounded-full" onClick={()=>setShowDex(false)}>閉じる</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -234,6 +234,39 @@ function analyzeNutrition(ingredients: string[]): {
     'herb': { healthScore: 90, calories: 5, carbs: 1, protein: 0, fat: 0, fiber: 0, category: 'ハーブ', isHealthy: true, keywords: ['cilantro', 'parsley', 'herb', 'コリアンダー', 'パクチー', 'パセリ'] },
   }
 
+  // === 🚀 追加 / 覆盖的食材健康评分数据（由用户提供） ===
+  const additionalFoodData: Record<string, {
+    healthScore: number
+    calories: number
+    carbs: number
+    protein: number
+    fat: number
+    fiber: number
+    category: string
+    isHealthy: boolean
+    keywords: string[]
+  }> = {
+    // 超级垃圾食品 0-15分
+    'icecream': { healthScore: 7, calories: 210, carbs: 26, protein: 3, fat: 11, fiber: 0, category: '糖分爆弾', isHealthy: false, keywords: ['icecream', 'ice cream', 'アイス', 'アイスクリーム', '雪糕', '冰淇淋'] },
+    'donut':    { healthScore: 7, calories: 240, carbs: 30, protein: 3, fat: 12, fiber: 1, category: '糖分爆弾', isHealthy: false, keywords: ['donut', 'doughnut', 'ドーナツ', '甜甜圈'] },
+    'snack':    { healthScore: 10, calories: 200, carbs: 22, protein: 2, fat: 11, fiber: 1, category: '零食',     isHealthy: false, keywords: ['snack', 'chips', 'snacks', 'お菓子', '零食'] },
+
+    // 加工 / 快餐 15-35
+    'udon':     { healthScore: 25, calories: 270, carbs: 55, protein: 8, fat: 1, fiber: 2, category: '麺類', isHealthy: false, keywords: ['udon', 'うどん'] },
+
+    // 乳製品 35-75
+    'milk':     { healthScore: 70, calories: 50, carbs: 5, protein: 4, fat: 2, fiber: 0, category: '乳製品', isHealthy: true,  keywords: ['milk', '牛乳', 'ミルク'] },
+    'cheese':   { healthScore: 60, calories: 90, carbs: 1, protein: 6, fat: 7, fiber: 0, category: '乳製品', isHealthy: false, keywords: ['cheese', 'チーズ'] },
+    'yogurt':   { healthScore: 75, calories: 60, carbs: 7, protein: 5, fat: 2, fiber: 0, category: '乳製品', isHealthy: true,  keywords: ['yogurt', 'ヨーグルト'] },
+
+    // 水 / 茶 85-100
+    'water':    { healthScore: 100, calories: 0, carbs: 0, protein: 0, fat: 0, fiber: 0, category: '飲料', isHealthy: true, keywords: ['water', '水', 'みず'] },
+    'tea':      { healthScore: 95,  calories: 0, carbs: 0, protein: 0, fat: 0, fiber: 0, category: '飲料', isHealthy: true, keywords: ['tea', 'green tea', 'お茶', '緑茶', '紅茶', 'tea'] },
+  }
+
+  // 合并额外数据；如有同名键将覆盖旧值
+  Object.assign(foodHealthData, additionalFoodData)
+
   let totalCalories = 0
   let totalCarbs = 0
   let totalProtein = 0
@@ -514,10 +547,31 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
       }
       
       localStorage.setItem('pet-health-score', newHealthScore.toString())
-      
+
+      // === 新增：累计蛋白质 & 脂肪数值 ===
+      const currentProtein = parseInt(localStorage.getItem('protein-value') || '0')
+      const currentFat = parseInt(localStorage.getItem('fat-value') || '0')
+
+      const newProtein = currentProtein + analysis.nutrition.protein
+      const newFat = currentFat + analysis.nutrition.fat
+
+      localStorage.setItem('protein-value', newProtein.toString())
+      localStorage.setItem('fat-value', newFat.toString())
+
+      // === 新增：咖喱判定 -> 印度模式 ===
+      const isCurry = ingredients.some(i => i.toLowerCase().includes('curry') || i.includes('カレー'))
+      if (isCurry) {
+        localStorage.setItem('indian-mode', 'true')
+      } else {
+        // 清除上一次的印度状态
+        localStorage.removeItem('indian-mode')
+      }
+
       console.log('健康数据已保存:', {
         lastMealScore: analysis.healthScore,
         newHealthScore: newHealthScore,
+        protein: newProtein,
+        fat: newFat,
         timestamp: new Date().toISOString()
       })
     }

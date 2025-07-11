@@ -157,11 +157,20 @@ export default function MealPage() {
     if (!analysisResult || !selectedFile) return
 
     try {
-      // ゲストモードでは実際の保存はせず、ローカルに仮保存
-      console.log('ゲストモード - 食事記録:', {
-        file: selectedFile.name,
-        analysis: analysisResult
-      })
+      // ゲストモードでは localStorage に保存
+      const historyKey = 'meal-history'
+      const existing = JSON.parse(localStorage.getItem(historyKey) || '[]')
+      const newRecord = {
+        id: Date.now(),
+        fileName: selectedFile.name,
+        timestamp: new Date().toISOString(),
+        analysis: analysisResult,
+        preview: preview
+      }
+      const updated = [newRecord, ...existing].slice(0, 50) // 最多保留50条
+      localStorage.setItem(historyKey, JSON.stringify(updated))
+
+      console.log('ゲストモード - 保存完了', newRecord)
       
       // 成功メッセージを表示してホームに戻る
       alert('食事記録が記録されました！（ゲストモード）')
