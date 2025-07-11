@@ -97,7 +97,10 @@ export default function HomePage() {
 
     // 桌面版使用更大尺寸,移动版使用较小尺寸
     const dimensions = size === 'large' ? { width: 1000, height: 1000 } : { width: 300, height: 300 }
-    const emojiSize = size === 'large' ? 'text-[600px]' : 'text-[180px]' // 调整Emoji大小
+    // 在桌面版使用较为合适的尺寸，并随着屏幕继续变大渐进放大，防止过度膨胀导致位置错乱
+    const emojiSize = size === 'large' 
+      ? 'text-[320px] lg:text-[400px] xl:text-[480px]' // 调整Emoji大小（响应式）
+      : 'text-[180px]'
     const scaleClass = size === 'large' ? 'scale-110' : 'scale-100'
 
     // 对于死亡和生病状态，使用emoji
@@ -379,7 +382,7 @@ export default function HomePage() {
 
               {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-[120px] lg:bottom-[80px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-[70px] lg:bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
                 onClick={handlePetClick}
               >
                 <div className="text-center">
@@ -528,7 +531,7 @@ export default function HomePage() {
 
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-[100px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-[50px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
               onClick={handlePetClick}
             >
               <div className="text-center">
