@@ -664,10 +664,14 @@ export default function HomePage() {
       </div>
       {showDex && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999]" onClick={()=>setShowDex(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full" onClick={e=>e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
             <h2 className="text-xl font-black text-purple-800 mb-4 text-center">くっくぴん図鑑</h2>
             <div className="grid grid-cols-3 gap-4">
-              {['default','strong','fat','sick','dead','indian'].map(form=>{
+              {[
+                'default','strong','fat','sick','dead','indian',
+                'mystery1','mystery2','mystery3','mystery4','mystery5','mystery6',
+                'mystery7','mystery8','mystery9'
+              ].map(form=>{
                 const unlocked = form==='default' || (typeof window!=='undefined' && localStorage.getItem(`dex-${form}`))
                 const imgMap: Record<string,string> = {
                   default:'/kukupinHappy.png',
@@ -677,14 +681,19 @@ export default function HomePage() {
                   dead:'/kukupinDead.png',
                   indian:'/kukupinIndian.png'
                 }
+                
+
+                
                 return (
                   <div key={form} className="flex flex-col items-center">
                     {unlocked ? (
                       <Image src={imgMap[form]} alt={form} width={80} height={80} />
                     ) : (
-                      <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-3xl text-gray-600">?</div>
+                      <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-3xl text-gray-600 shadow-lg border-2 border-white/50">?</div>
                     )}
-                    <span className="text-xs font-bold mt-1">{form}</span>
+                    <span className="text-xs font-bold mt-1">
+                      {form.startsWith('mystery') ? '？' : form}
+                    </span>
                   </div>
                 )
               })}
