@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Camera, Upload, ArrowLeft, Sparkles, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,18 @@ export default function MealPage() {
     displayName: 'ゲストユーザー'
   }
   
+  // 移动端检测
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setIsMobile(mobile)
+      console.log('设备检测:', { mobile, userAgent: navigator.userAgent })
+    }
+    checkMobile()
+  }, [])
+  
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -21,21 +33,38 @@ export default function MealPage() {
   const router = useRouter()
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('文件选择事件触发')
     const file = event.target.files?.[0]
+    console.log('选择的文件:', file)
+    
     if (file && file.type.startsWith('image/')) {
+      console.log('有效图片文件:', file.name, file.size, file.type)
       setSelectedFile(file)
       
       // プレビュー画像の作成
       const reader = new FileReader()
       reader.onload = (e) => {
+        console.log('图片预览创建完成')
         setPreview(e.target?.result as string)
       }
+      reader.onerror = (e) => {
+        console.error('图片读取失败:', e)
+      }
       reader.readAsDataURL(file)
+    } else {
+      console.log('无效文件或非图片文件')
+      alert('画像ファイルを選択してください。')
     }
   }
 
   const triggerFileInput = () => {
-    fileInputRef.current?.click()
+    console.log('触发文件选择...')
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+      console.log('文件选择器已触发')
+    } else {
+      console.error('文件输入引用不存在')
+    }
   }
 
   // 真实AI图像分析函数
@@ -154,11 +183,18 @@ export default function MealPage() {
   }
 
   const saveRecord = async () => {
-    if (!analysisResult || !selectedFile) return
+    console.log('保存记录开始...')
+    if (!analysisResult || !selectedFile) {
+      console.error('缺少必要数据:', { analysisResult: !!analysisResult, selectedFile: !!selectedFile })
+      alert('保存に必要なデータが不足しています。')
+      return
+    }
 
     try {
       // ゲストモードでは localStorage に保存
       const hasConsent = localStorage.getItem('kukupin-consent')==='1'
+      console.log('同意状态:', hasConsent)
+      
       if(!hasConsent){
         alert('データ保存の同意が必要です。\n\nホーム画面の「設定」ボタンから「データ保存の同意」を有効にしてください。\n\nこれにより、くっくぴんの健康データが保存され、食事記録が反映されます。')
         return
@@ -217,15 +253,18 @@ export default function MealPage() {
         /* ファイルアップロード */
         <div className="space-y-6">
           <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-primary-400 transition-colors cursor-pointer"
+            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-primary-400 transition-colors cursor-pointer touch-manipulation"
             onClick={triggerFileInput}
+
           >
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
+              style={{ fontSize: '16px' }}
             />
             
             <div className="space-y-4">
@@ -237,7 +276,7 @@ export default function MealPage() {
                   食事の写真をアップロード
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  クリックしてファイルを選択するか、ドラッグ&ドロップしてください
+                  {isMobile ? 'タップしてカメラで撮影またはギャラリーから選択' : 'クリックしてファイルを選択するか、ドラッグ&ドロップしてください'}
                 </p>
                 <p className="text-sm text-gray-500">
                   JPG, PNG形式に対応
@@ -252,7 +291,8 @@ export default function MealPage() {
             </p>
             <button
               onClick={triggerFileInput}
-              className="mt-2 btn-secondary inline-flex items-center"
+
+              className="mt-2 btn-secondary inline-flex items-center touch-manipulation"
             >
               <Upload size={16} className="mr-2" />
               ファイルを選択
@@ -286,10 +326,11 @@ export default function MealPage() {
                 別の画像を選択
               </button>
               {!loading && !analysisResult && (
-                <button
-                  onClick={() => analyzeImage(selectedFile!)}
-                  className="btn-primary inline-flex items-center"
-                >
+                              <button
+                onClick={() => analyzeImage(selectedFile!)}
+
+                className="btn-primary inline-flex items-center touch-manipulation"
+              >
                   <Sparkles size={16} className="mr-2" />
                   AI分析を開始
                 </button>
@@ -420,7 +461,8 @@ export default function MealPage() {
               <div className="text-center">
                 <button
                   onClick={saveRecord}
-                  className="btn-primary text-lg px-8 py-3"
+
+                  className="btn-primary text-lg px-8 py-3 touch-manipulation"
                 >
                   記録を保存してキャラクターを育てる
                 </button>

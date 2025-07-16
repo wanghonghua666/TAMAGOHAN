@@ -430,8 +430,9 @@ export default function HomePage() {
 
               {/* 宠物显示区域 - 在图片的地毯位置 */}
               <div 
-                className="absolute bottom-[40px] lg:bottom-[10px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+                className="absolute bottom-[40px] lg:bottom-[10px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10 touch-manipulation"
                 onClick={handlePetClick}
+
               >
                 <div className="text-center">
                   {/* 宠物角色 */}
@@ -585,8 +586,9 @@ export default function HomePage() {
 
             {/* 宠物显示区域 */}
             <div 
-              className="absolute bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10"
+              className="absolute bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10 touch-manipulation"
               onClick={handlePetClick}
+
             >
               <div className="text-center">
                 {/* 宠物角色 - 使用小尺寸 */}

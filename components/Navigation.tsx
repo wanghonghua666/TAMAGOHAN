@@ -12,7 +12,7 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-24">
           {/* 木牌Logo */}
           <Link href="/" className="flex items-center transform transition-all duration-200 hover:scale-105">
-            <Image src="/kukupinTitle.png" alt="くっくぴん" width={220} height={60} priority />
+            <Image src="/kukupinTitle.png" alt="くっくぴん" width={220} height={60} priority style={{ width: 'auto', height: 'auto' }} />
           </Link>
 
           {/* ゲストモード标签 */}
