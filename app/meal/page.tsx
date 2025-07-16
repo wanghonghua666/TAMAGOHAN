@@ -160,7 +160,8 @@ export default function MealPage() {
       // ゲストモードでは localStorage に保存
       const hasConsent = localStorage.getItem('kukupin-consent')==='1'
       if(!hasConsent){
-        alert('ゲストモードでは同意を得るまでデータは保存されません。設定パネルから同意してください。')
+        alert('データ保存の同意が必要です。\n\nホーム画面の「設定」ボタンから「データ保存の同意」を有効にしてください。\n\nこれにより、くっくぴんの健康データが保存され、食事記録が反映されます。')
+        return
       }
       const historyKey = 'meal-history'
       const existing = hasConsent ? JSON.parse(localStorage.getItem(historyKey) || '[]') : []

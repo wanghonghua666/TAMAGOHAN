@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
-import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag, BookOpen } from 'lucide-react'
+import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag, BookOpen, Settings } from 'lucide-react'
 import DemoNotice from '@/components/DemoNotice'
 import { storeItems } from '@/lib/store-items'
 
@@ -30,6 +30,7 @@ export default function HomePage() {
   const [fatValue, setFatValue] = useState(0)
   const [indianMode, setIndianMode] = useState(false)
   const [showDex, setShowDex] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [isClient, setIsClient] = useState(false) // 添加客户端检查
   const [isDesktop, setIsDesktop] = useState(false)
   const [purchasedItems, setPurchasedItems] = useState<string[]>([])
@@ -654,6 +655,13 @@ export default function HomePage() {
               </div>
               <span className="text-xs font-bold text-purple-800">図鑑</span>
             </button>
+            
+            <button onClick={()=>setShowSettings(true)} className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
+              <div className="bg-gray-100 rounded-full p-2">
+                <Settings className="w-5 h-5 text-gray-600" />
+              </div>
+              <span className="text-xs font-bold text-purple-800">設定</span>
+            </button>
           </div>
         </div>
       </div>
@@ -702,6 +710,70 @@ export default function HomePage() {
           </div>
         </div>
       )}
+      
+      {/* 设置弹窗 */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999]" onClick={()=>setShowSettings(false)}>
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={e=>e.stopPropagation()}>
+            <h2 className="text-xl font-black text-purple-800 mb-4 text-center">設定</h2>
+            
+            {/* 数据保存同意设置 */}
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-3">データ保存の同意</h3>
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-700 mb-3">
+                  本ゲームではスコア・図鑑などをお使いのブラウザのローカルストレージに保存します。
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">データ保存</span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`text-sm font-bold ${localStorage.getItem('kukupin-consent')==='1' ? 'text-green-600' : 'text-red-600'}`}>
+                      {localStorage.getItem('kukupin-consent')==='1' ? '有効' : '無効'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (localStorage.getItem('kukupin-consent')==='1') {
+                          localStorage.removeItem('kukupin-consent')
+                        } else {
+                          localStorage.setItem('kukupin-consent', '1')
+                        }
+                        setShowSettings(false)
+                      }}
+                      className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
+                        localStorage.getItem('kukupin-consent')==='1' 
+                          ? 'bg-red-500 hover:bg-red-600 text-white' 
+                          : 'bg-green-500 hover:bg-green-600 text-white'
+                      }`}
+                    >
+                      {localStorage.getItem('kukupin-consent')==='1' ? '無効にする' : '有効にする'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* 数据重置 */}
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-3">データ管理</h3>
+              <button
+                onClick={() => {
+                  if (confirm('すべてのデータを削除しますか？この操作は取り消せません。')) {
+                    localStorage.clear()
+                    alert('データを削除しました。ページを再読み込みしてください。')
+                    setShowSettings(false)
+                  }
+                }}
+                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-full transition"
+              >
+                すべてのデータを削除
+              </button>
+            </div>
+            
+            <button className="w-full bg-purple-500 text-white font-bold px-4 py-2 rounded-full" onClick={()=>setShowSettings(false)}>閉じる</button>
+          </div>
+        </div>
+      )}
+      
       {/* 同意弹窗已由全局ConsentGate处理，这里移除 */}
     </div>
   )

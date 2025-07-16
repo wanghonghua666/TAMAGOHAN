@@ -532,6 +532,12 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
     // 保存健康数据到localStorage
     if (typeof window !== 'undefined' && localStorage.getItem('kukupin-consent')==='1') {
       console.log('5. 保存数据到本地存储...')
+    } else {
+      console.log('5. 数据保存跳过 - 用户未同意数据保存')
+      console.log('   请用户到主页面的"設定"按钮中启用"データ保存の同意"')
+    }
+    
+    if (typeof window !== 'undefined' && localStorage.getItem('kukupin-consent')==='1') {
       // 保存最后一餐的分数
       localStorage.setItem('last-meal-score', analysis.healthScore.toString())
       localStorage.setItem('last-fed-time', Date.now().toString())
