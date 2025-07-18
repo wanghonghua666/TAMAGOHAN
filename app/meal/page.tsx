@@ -261,7 +261,6 @@ export default function MealPage() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleFileSelect}
               className="hidden"
               style={{ fontSize: '16px' }}
@@ -276,7 +275,7 @@ export default function MealPage() {
                   食事の写真をアップロード
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  {isMobile ? 'タップしてカメラで撮影またはギャラリーから選択' : 'クリックしてファイルを選択するか、ドラッグ&ドロップしてください'}
+                  {isMobile ? 'タップしてカメラで撮影、または下のボタンから選択してください' : 'クリックしてファイルを選択するか、ドラッグ&ドロップしてください'}
                 </p>
                 <p className="text-sm text-gray-500">
                   JPG, PNG形式に対応
@@ -285,19 +284,57 @@ export default function MealPage() {
             </div>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              または
-            </p>
-            <button
-              onClick={triggerFileInput}
-
-              className="mt-2 btn-secondary inline-flex items-center touch-manipulation"
-            >
-              <Upload size={16} className="mr-2" />
-              ファイルを選択
-            </button>
-          </div>
+          {isMobile && (
+            <div className="text-center space-y-3">
+              <p className="text-sm text-gray-600">
+                または
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={() => {
+                    // 创建专门用于相机的input
+                    const cameraInput = document.createElement('input')
+                    cameraInput.type = 'file'
+                    cameraInput.accept = 'image/*'
+                    cameraInput.capture = 'environment'
+                    cameraInput.onchange = (e) => {
+                      const target = e.target as HTMLInputElement
+                      if (target.files && target.files[0]) {
+                        handleFileSelect({ target } as React.ChangeEvent<HTMLInputElement>)
+                      }
+                    }
+                    cameraInput.click()
+                  }}
+                  className="btn-secondary inline-flex items-center touch-manipulation"
+                >
+                  <Camera size={16} className="mr-2" />
+                  カメラで撮影
+                </button>
+                <button
+                  onClick={triggerFileInput}
+                  className="btn-secondary inline-flex items-center touch-manipulation"
+                >
+                  <Upload size={16} className="mr-2" />
+                  ギャラリーから選択
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {!isMobile && (
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                または
+              </p>
+              <button
+                onClick={triggerFileInput}
+                className="mt-2 btn-secondary inline-flex items-center touch-manipulation"
+              >
+                <Upload size={16} className="mr-2" />
+                ファイルを選択
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         /* 画像プレビューと分析 */
