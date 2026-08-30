@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { UserProfile } from '@/lib/meal-assessment'
 import { DEFAULT_PROFILE } from '@/lib/meal-assessment'
 
-const GEMINI_MODEL = 'gemini-2.0-flash'
+const GEMINI_MODEL = 'gemini-3.6-flash'
+
+export const maxDuration = 60
 
 interface GeminiFoodResult {
   isEdible: boolean
+  foodName?: string
+  description?: string
+  funReview?: string
   ingredients: string[]
   healthScore?: number
   message?: string
@@ -21,9 +26,14 @@ interface GeminiFoodResult {
 }
 
 function parseBase64Image(imageBase64: string): { mimeType: string; data: string } {
-  const match = imageBase64.match(/^data:(image\/\w+);base64,(.+)$/)
+  const match = imageBase64.match(/^data:(image\/[\w+.-]+);base64,(.+)$/)
   if (match) return { mimeType: match[1], data: match[2] }
   return { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] || imageBase64 }
+}
+
+function num(v: unknown, fallback = 0): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v))
+  return Number.isFinite(n) ? Math.round(n) : fallback
 }
 
 function extractJson(text: string): GeminiFoodResult | null {
@@ -33,21 +43,45 @@ function extractJson(text: string): GeminiFoodResult | null {
   if (start === -1 || end === -1) return null
   try {
     const parsed = JSON.parse(cleaned.slice(start, end + 1))
+
     if (parsed.isEdible === false) {
       return {
         isEdible: false,
         ingredients: [],
+        foodName: parsed.foodName,
+        description: parsed.description,
+        funReview: parsed.funReview,
         rejectReason: parsed.rejectReason || 'not_food',
-        message: parsed.message,
+        message: parsed.funReview || parsed.message || parsed.description,
       }
     }
-    if (!Array.isArray(parsed.ingredients) || parsed.ingredients.length === 0) return null
+
+    const foodName = typeof parsed.foodName === 'string' ? parsed.foodName.trim() : ''
+    let ingredients: string[] = Array.isArray(parsed.ingredients)
+      ? parsed.ingredients.map((i: string) => String(i).toLowerCase().trim()).filter(Boolean)
+      : []
+    if (ingredients.length === 0 && foodName) ingredients = [foodName]
+
+    const nutrition = parsed.nutrition
+      ? {
+          calories: num(parsed.nutrition.calories, 400),
+          carbs: num(parsed.nutrition.carbs, 50),
+          protein: num(parsed.nutrition.protein, 15),
+          fat: num(parsed.nutrition.fat, 12),
+          fiber: num(parsed.nutrition.fiber, 3),
+          vegetableServings: num(parsed.nutrition.vegetableServings, 0),
+        }
+      : undefined
+
     return {
       isEdible: true,
-      ingredients: parsed.ingredients.map((i: string) => i.toLowerCase().trim()),
-      healthScore: typeof parsed.healthScore === 'number' ? parsed.healthScore : undefined,
-      message: typeof parsed.message === 'string' ? parsed.message : undefined,
-      nutrition: parsed.nutrition,
+      foodName,
+      description: typeof parsed.description === 'string' ? parsed.description : undefined,
+      funReview: typeof parsed.funReview === 'string' ? parsed.funReview : undefined,
+      ingredients,
+      healthScore: typeof parsed.healthScore === 'number' ? parsed.healthScore : 50,
+      message: parsed.funReview || parsed.message,
+      nutrition,
     }
   } catch {
     return null
@@ -58,25 +92,22 @@ async function callGemini(
   apiKey: string,
   imageBase64: string,
   profile: UserProfile,
-): Promise<GeminiFoodResult | null> {
+): Promise<{ result: GeminiFoodResult | null; error?: string }> {
   const { mimeType, data } = parseBase64Image(imageBase64)
 
-  const prompt = `You are a food nutrition analyst for Kukupin, a Japanese pet-raising health app.
+  const prompt = `You are the food analyst for 「くっくぴん」, a cute Japanese pet health game.
+Look at the photo carefully — packaged convenience-store meals, bento boxes, restaurant dishes, drinks, and snacks ALL count as edible food.
 
-User profile:
-- Weight: ${profile.weightKg} kg
-- Height: ${profile.heightCm} cm
-- Goal: ${profile.goal}
-- Activity: ${profile.activity}
+User: ${profile.weightKg}kg, ${profile.heightCm}cm, goal=${profile.goal}, activity=${profile.activity}
 
-First check: is this EDIBLE food/drink? If not (people, pets, objects, landscapes, etc.), set isEdible=false.
-
-Respond ONLY with valid JSON:
+Return ONLY valid JSON (no markdown):
 {
-  "isEdible": true/false,
-  "ingredients": ["item1", "item2"],
+  "isEdible": boolean,
+  "foodName": "Japanese dish name",
+  "description": "2-3 sentences in Japanese describing what you see (brand, packaging, colors, portions)",
+  "funReview": "2-3 sentences in Japanese — playful, exaggerated reaction AS IF the pet くっくぴん is commenting. Use emoji. Be funny but still mention health.",
+  "ingredients": ["english lowercase", "..."],
   "healthScore": 0-100,
-  "message": "Brief Japanese comment with emoji",
   "nutrition": {
     "calories": number,
     "carbs": number,
@@ -85,17 +116,14 @@ Respond ONLY with valid JSON:
     "fiber": number,
     "vegetableServings": number
   },
-  "rejectReason": "only if isEdible=false"
+  "rejectReason": "only when isEdible is false"
 }
 
-Rules when isEdible=true:
-- Estimate nutrition for the VISIBLE PORTION in the photo (one meal serving)
-- vegetableServings: count vegetable portions (1 serving ≈ 80g leafy/g cooked veg)
-- healthScore: food quality only (0=junk, 100=ideal whole foods)
-- ingredients: 2-8 items, English lowercase
-- Recognize Japanese food (sushi, ramen, curry, bento, miso soup, etc.)
-
-When isEdible=false: ingredients=[], no nutrition data, message asks for food photo in Japanese`
+Rules:
+- Convenience store / コンビニ packaged food IS edible (7-Eleven pasta, onigiri, bento, etc.)
+- Estimate nutrition for the visible portion (one serving)
+- healthScore = food quality only (0=junk, 100=ideal)
+- If not food at all, set isEdible=false and explain in description + funReview`
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
@@ -104,25 +132,48 @@ When isEdible=false: ingredients=[], no nutrition data, message asks for food ph
       headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ inline_data: { mime_type: mimeType, data } }, { text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 1200,
+          responseMimeType: 'application/json',
+        },
       }),
     }
   )
 
-  if (!res.ok) return null
-  const result = await res.json()
-  const text = result.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) return null
-  return extractJson(text)
+  if (!res.ok) {
+    console.error('Gemini API error:', res.status)
+    return { result: null, error: `api_${res.status}` }
+  }
+
+  const body = await res.json()
+  const text = body.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) {
+    console.error('Gemini empty response:', body.candidates?.[0]?.finishReason)
+    return { result: null, error: 'empty_response' }
+  }
+
+  const parsed = extractJson(text)
+  if (!parsed) {
+    console.error('Gemini JSON parse failed, length:', text.length)
+    return { result: null, error: 'parse_failed' }
+  }
+
+  if (parsed.isEdible && parsed.ingredients.length === 0) {
+    parsed.ingredients = parsed.foodName ? [parsed.foodName] : ['meal']
+  }
+
+  return { result: parsed }
 }
 
-function rejectNotFood(message?: string) {
+function rejectNotFood(message?: string, reason?: 'not_food' | 'api_error', extra?: Partial<GeminiFoodResult>) {
   return NextResponse.json({
     success: true,
     isEdible: false,
     ingredients: [],
-    source: 'rejected',
+    source: reason === 'api_error' ? 'error' : 'rejected',
     message: message || '食べ物の写真をアップロードしてください 🍽️',
+    geminiAnalysis: extra,
   })
 }
 
@@ -145,12 +196,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gemini API 未配置' }, { status: 500 })
     }
 
-    const gemini = await callGemini(geminiKey, imageBase64, profile)
+    const { result: gemini, error } = await callGemini(geminiKey, imageBase64, profile)
     if (!gemini) {
-      return rejectNotFood('分析に失敗しました。もう一度お試しください 📸')
+      return rejectNotFood(
+        'AI分析サービスに接続できませんでした。しばらくしてからもう一度お試しください 📸',
+        'api_error',
+      )
     }
     if (!gemini.isEdible) {
-      return rejectNotFood(gemini.message)
+      return rejectNotFood(
+        gemini.funReview || gemini.message || gemini.description,
+        'not_food',
+        {
+          foodName: gemini.foodName,
+          description: gemini.description,
+          funReview: gemini.funReview,
+        },
+      )
     }
 
     return NextResponse.json({
@@ -159,8 +221,11 @@ export async function POST(request: NextRequest) {
       ingredients: gemini.ingredients,
       source: 'gemini-flash',
       geminiAnalysis: {
+        foodName: gemini.foodName,
+        description: gemini.description,
+        funReview: gemini.funReview,
         healthScore: gemini.healthScore,
-        message: gemini.message,
+        message: gemini.funReview || gemini.message,
         nutrition: gemini.nutrition,
       },
     })

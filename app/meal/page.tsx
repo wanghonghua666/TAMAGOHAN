@@ -88,8 +88,10 @@ export default function MealPage() {
         healthScore: result.healthyScore,
         portionScore: result.assessment?.portionScore ?? 0,
         message: result.message,
+        foodName: result.foodName,
+        description: result.description,
+        funReview: result.funReview,
         ingredients: result.ingredients,
-        categories: result.categories,
         nutrition: {
           calories: result.nutritionEstimate.calories,
           carbs: result.nutritionEstimate.carbs,
@@ -323,9 +325,16 @@ export default function MealPage() {
           {/* 分析結果 */}
           {analysisResult && !analysisResult.isEdible && (
             <div className="card text-center py-8">
-              <div className="text-6xl mb-4">🚫</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">食べ物が見つかりません</h3>
-              <p className="text-gray-600 mb-4">{analysisResult.message}</p>
+              <div className="text-6xl mb-4">{analysisResult.source === 'error' ? '⚠️' : '🚫'}</div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                {analysisResult.source === 'error' ? '分析できませんでした' : '食べ物が見つかりません'}
+              </h3>
+              {analysisResult.description && (
+                <p className="text-gray-700 text-left bg-gray-50 rounded-xl p-4 mb-3 text-sm leading-relaxed">
+                  {analysisResult.description}
+                </p>
+              )}
+              <p className="text-gray-600 mb-4">{analysisResult.funReview || analysisResult.message}</p>
               <button
                 onClick={() => { setPreview(null); setSelectedFile(null); setAnalysisResult(null) }}
                 className="btn-secondary"
@@ -337,13 +346,22 @@ export default function MealPage() {
 
           {analysisResult && analysisResult.isEdible && (
             <div className="space-y-6">
+              {/* AI 描述 */}
+              {(analysisResult.foodName || analysisResult.description) && (
+                <div className="card">
+                  {analysisResult.foodName && (
+                    <h3 className="text-lg font-black text-purple-800 mb-2">🍽️ {analysisResult.foodName}</h3>
+                  )}
+                  {analysisResult.description && (
+                    <p className="text-gray-700 text-sm leading-relaxed">{analysisResult.description}</p>
+                  )}
+                </div>
+              )}
+
               {/* スコア表示 */}
               <div className="card text-center">
                 <div className="mb-4">
-                  <div className="text-6xl mb-2">
-                    {analysisResult.type === 'vegetable' ? '🥗' : 
-                     analysisResult.type === 'junk' ? '🍔' : '🍽️'}
-                  </div>
+                  <div className="text-6xl mb-2">🐻</div>
                   <div className="text-4xl font-bold text-primary-600 mb-1">
                     {analysisResult.score}/100
                   </div>
@@ -351,11 +369,6 @@ export default function MealPage() {
                   <div className="text-xs text-gray-400 mb-2">
                     食品質 {analysisResult.healthScore}点 · 份量 {analysisResult.portionScore}点
                   </div>
-                  {analysisResult.source && (
-                    <div className="text-xs text-gray-400 mb-2">
-                      识别: {analysisResult.source === 'gemini-flash' ? 'Gemini Flash AI' : analysisResult.source}
-                    </div>
-                  )}
                   <div className="w-full bg-gray-200 rounded-full h-4">
                     <div 
                       className={`h-4 rounded-full transition-all duration-1000 ${
@@ -366,9 +379,12 @@ export default function MealPage() {
                     ></div>
                   </div>
                 </div>
-                <p className="text-gray-700 italic">
-                  {analysisResult.message}
-                </p>
+                {(analysisResult.funReview || analysisResult.message) && (
+                  <div className="bg-orange-50 border-2 border-orange-100 rounded-2xl p-4 text-left">
+                    <p className="text-xs font-bold text-orange-600 mb-1">くっくぴんのコメント</p>
+                    <p className="text-gray-800 leading-relaxed">{analysisResult.funReview || analysisResult.message}</p>
+                  </div>
+                )}
               </div>
 
               {/* 宏量营养素评估 */}
@@ -382,6 +398,7 @@ export default function MealPage() {
               {/* 詳細分析 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* 検出された食材 */}
+                {analysisResult.ingredients?.length > 0 && (
                 <div className="card">
                   <h4 className="font-medium text-gray-900 mb-3">検出された食材</h4>
                   <div className="space-y-2">
@@ -393,6 +410,7 @@ export default function MealPage() {
                     ))}
                   </div>
                 </div>
+                )}
 
                 {/* 栄養情報 */}
                 <div className="card">
@@ -422,28 +440,10 @@ export default function MealPage() {
                 </div>
               </div>
 
-              {/* カテゴリー */}
-              <div className="card">
-                <h4 className="font-medium text-gray-900 mb-3">食事カテゴリー</h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysisResult.categories.map((category: any, index: number) => (
-                    <span 
-                      key={index}
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        category.isHealthy 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {category.name} ({category.confidence}%)
-                    </span>
-                  ))}
-                </div>
-              </div>
-
               {/* 推奨事項 */}
+              {analysisResult.recommendations?.length > 0 && (
               <div className="card">
-                <h4 className="font-medium text-gray-900 mb-3">推奨事項</h4>
+                <h4 className="font-medium text-gray-900 mb-3">アドバイス</h4>
                 <ul className="space-y-2">
                   {analysisResult.recommendations.map((rec: string, index: number) => (
                     <li key={index} className="flex items-start">
@@ -453,6 +453,7 @@ export default function MealPage() {
                   ))}
                 </ul>
               </div>
+              )}
 
               {/* 保存ボタン */}
               <div className="text-center">

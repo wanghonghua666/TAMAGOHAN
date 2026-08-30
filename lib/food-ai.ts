@@ -1,20 +1,20 @@
 'use client'
 
-import { analyzeNutrition } from './nutrition'
 import { assessMeal, type MealAssessment } from './meal-assessment'
 import { STORAGE_KEYS, getUserProfile } from './storage'
 
 export interface FoodRecognitionResult {
   isEdible: boolean
+  foodName?: string
+  description?: string
+  funReview?: string
   ingredients: string[]
-  categories: Array<{ name: string; confidence: number; isHealthy: boolean }>
   nutritionEstimate: {
     calories: number
     carbs: number
     protein: number
     fat: number
     fiber: number
-    vitamins: string[]
     vegetableServings?: number
   }
   healthyScore: number
@@ -31,6 +31,9 @@ interface ApiResponse {
   source: string
   message?: string
   geminiAnalysis?: {
+    foodName?: string
+    description?: string
+    funReview?: string
     healthScore?: number
     message?: string
     nutrition?: {
@@ -42,6 +45,33 @@ interface ApiResponse {
       vegetableServings?: number
     }
   }
+}
+
+/** 上传前压缩大图，避免 API 超时或失败 */
+async function fileToCompressedBase64(file: File, maxWidth = 1280, quality = 0.82): Promise<string> {
+  if (typeof document === 'undefined') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error('图片读取失败'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, maxWidth / bitmap.width)
+  const w = Math.round(bitmap.width * scale)
+  const h = Math.round(bitmap.height * scale)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 不可用')
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+
+  return canvas.toDataURL('image/jpeg', quality)
 }
 
 async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
@@ -88,45 +118,38 @@ function savePetData(ingredients: string[], overallScore: number, nutrition: Foo
 }
 
 export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResult> {
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = e => resolve(e.target?.result as string)
-    reader.onerror = () => reject(new Error('图片读取失败'))
-    reader.readAsDataURL(file)
-  })
-
+  const base64 = await fileToCompressedBase64(file)
   const { isEdible, ingredients, source, message: apiMessage, geminiAnalysis } = await recognizeFood(base64)
 
   if (!isEdible) {
     return {
       isEdible: false,
+      foodName: geminiAnalysis?.foodName,
+      description: geminiAnalysis?.description,
+      funReview: geminiAnalysis?.funReview,
       ingredients: [],
-      categories: [],
-      nutritionEstimate: { calories: 0, carbs: 0, protein: 0, fat: 0, fiber: 0, vitamins: [] },
+      nutritionEstimate: { calories: 0, carbs: 0, protein: 0, fat: 0, fiber: 0 },
       healthyScore: 0,
       overallScore: 0,
       confidence: 0,
-      message: apiMessage || '食べ物の写真をアップロードしてください 🍽️',
+      message: geminiAnalysis?.funReview || geminiAnalysis?.description || apiMessage || '食べ物の写真をアップロードしてください 🍽️',
       source,
     }
   }
 
   const profile = getUserProfile()
-  const localAnalysis = analyzeNutrition(ingredients)
+  const g = geminiAnalysis
 
-  const nutrition = geminiAnalysis?.nutrition
-    ? {
-        calories: geminiAnalysis.nutrition.calories,
-        carbs: geminiAnalysis.nutrition.carbs,
-        protein: geminiAnalysis.nutrition.protein,
-        fat: geminiAnalysis.nutrition.fat,
-        fiber: geminiAnalysis.nutrition.fiber,
-        vegetableServings: geminiAnalysis.nutrition.vegetableServings,
-        vitamins: localAnalysis.nutrition.vitamins,
-      }
-    : { ...localAnalysis.nutrition, vegetableServings: undefined }
+  const nutrition = {
+    calories: g?.nutrition?.calories ?? 400,
+    carbs: g?.nutrition?.carbs ?? 50,
+    protein: g?.nutrition?.protein ?? 15,
+    fat: g?.nutrition?.fat ?? 12,
+    fiber: g?.nutrition?.fiber ?? 3,
+    vegetableServings: g?.nutrition?.vegetableServings ?? 0,
+  }
 
-  const healthScore = geminiAnalysis?.healthScore ?? localAnalysis.healthScore
+  const healthScore = g?.healthScore ?? 50
 
   const assessment = assessMeal(
     {
@@ -143,15 +166,19 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
 
   savePetData(ingredients, assessment.overallScore, nutrition)
 
+  const funReview = g?.funReview || g?.message || assessment.message
+
   return {
     isEdible: true,
+    foodName: g?.foodName,
+    description: g?.description,
+    funReview,
     ingredients,
-    categories: localAnalysis.categories,
     nutritionEstimate: nutrition,
     healthyScore: healthScore,
     overallScore: assessment.overallScore,
     confidence: 92,
-    message: assessment.message,
+    message: funReview,
     source,
     assessment,
   }

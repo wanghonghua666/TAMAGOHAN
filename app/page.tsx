@@ -167,39 +167,40 @@ function HomeContent() {
       style={{
         minHeight: 'calc(100vh - 7rem)',
         backgroundImage: `url('${bgPath}')`,
-        backgroundSize: 'cover',
+        backgroundSize: isDesktop ? '100% 100%' : 'cover',
         backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
       <div className="flex flex-col relative z-10" style={{ minHeight: 'calc(100vh - 7rem)' }}>
-        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-3 p-3 flex-1">
+        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-5 p-5 flex-1 items-stretch">
           {/* 左：状态 */}
-          <div className="lg:col-span-2 space-y-3">
-            <div className="game-panel">
-              <h3 className="panel-title">📊 ステータス</h3>
-              <StatusRow label="🌟 レベル" value={`Lv.${level}`} color="text-yellow-600" />
-              <StatRow label="❤️ 健康度" value={`${healthScore}%`} barValue={healthScore} barColor={healthColor} />
-              <StatRow label="😊 幸福度" value={`${happiness}%`} barValue={happiness} barColor="bg-gradient-to-r from-green-400 to-emerald-500" />
-              <StatRow label="🍽️ 空腹度" value={`${hunger}%`} barValue={hunger} barColor="bg-gradient-to-r from-orange-400 to-red-400" />
-              <StatRow label="💪 タンパク質" value={String(proteinValue)} barValue={Math.min(100, proteinValue / 2)} barColor="bg-gradient-to-r from-purple-400 to-purple-600" />
-              <StatRow label="🍩 脂肪" value={String(fatValue)} barValue={Math.min(100, fatValue / 2)} barColor="bg-gradient-to-r from-pink-400 to-red-500" />
-              <p className="text-xs text-gray-500 text-center mt-2">最後の食事: {lastFed}時間前</p>
+          <div className="lg:col-span-3 flex flex-col justify-center">
+            <div className="game-panel lg:p-6">
+              <h3 className="panel-title lg:text-xl lg:mb-5">📊 ステータス</h3>
+              <StatusRow label="🌟 レベル" value={`Lv.${level}`} color="text-yellow-600" large />
+              <StatRow label="❤️ 健康度" value={`${healthScore}%`} barValue={healthScore} barColor={healthColor} large />
+              <StatRow label="😊 幸福度" value={`${happiness}%`} barValue={happiness} barColor="bg-gradient-to-r from-green-400 to-emerald-500" large />
+              <StatRow label="🍽️ 空腹度" value={`${hunger}%`} barValue={hunger} barColor="bg-gradient-to-r from-orange-400 to-red-400" large />
+              <StatRow label="💪 タンパク質" value={String(proteinValue)} barValue={Math.min(100, proteinValue / 2)} barColor="bg-gradient-to-r from-purple-400 to-purple-600" large />
+              <StatRow label="🍩 脂肪" value={String(fatValue)} barValue={Math.min(100, fatValue / 2)} barColor="bg-gradient-to-r from-pink-400 to-red-500" large />
+              <p className="text-sm text-gray-500 text-center mt-3">最後の食事: {lastFed}時間前</p>
             </div>
           </div>
 
           {/* 中：宠物 */}
-          <div className="lg:col-span-8 flex flex-col">
+          <div className="lg:col-span-6 flex flex-col min-h-0">
             <PetArea mood={petMood} lastFed={lastFed} size="large" />
           </div>
 
           {/* 右：今日记录 */}
-          <div className="lg:col-span-2 space-y-3">
-            <div className="game-panel">
-              <h3 className="panel-title">📈 今日の記録</h3>
-              <div className="grid grid-cols-1 gap-3 text-center">
-                <div><div className="text-2xl font-black text-green-600">{todayStats.count}</div><div className="text-xs text-gray-500">食事回数</div></div>
-                <div><div className="text-2xl font-black text-blue-600">{todayStats.totalCalories}</div><div className="text-xs text-gray-500">総カロリー</div></div>
-                <div><div className="text-2xl font-black text-purple-600">{healthScore}</div><div className="text-xs text-gray-500">健康スコア</div></div>
+          <div className="lg:col-span-3 flex flex-col justify-center gap-5">
+            <div className="game-panel lg:p-6">
+              <h3 className="panel-title lg:text-xl lg:mb-5">📈 今日の記録</h3>
+              <div className="grid grid-cols-1 gap-5 text-center">
+                <div><div className="text-4xl font-black text-green-600">{todayStats.count}</div><div className="text-sm text-gray-500 mt-1">食事回数</div></div>
+                <div><div className="text-4xl font-black text-blue-600">{todayStats.totalCalories}</div><div className="text-sm text-gray-500 mt-1">総カロリー</div></div>
+                <div><div className="text-4xl font-black text-purple-600">{healthScore}</div><div className="text-sm text-gray-500 mt-1">健康スコア</div></div>
               </div>
             </div>
           </div>
@@ -341,21 +342,21 @@ function HomeContent() {
   )
 }
 
-function StatusRow({ label, value, color }: { label: string; value: string; color: string }) {
+function StatusRow({ label, value, color, large }: { label: string; value: string; color: string; large?: boolean }) {
   return (
-    <div className="flex justify-between items-center mb-2">
-      <span className="text-xs font-bold text-gray-600">{label}</span>
-      <span className={`text-lg font-black ${color}`}>{value}</span>
+    <div className={`flex justify-between items-center ${large ? 'mb-3' : 'mb-2'}`}>
+      <span className={`font-bold text-gray-600 ${large ? 'text-sm' : 'text-xs'}`}>{label}</span>
+      <span className={`font-black ${color} ${large ? 'text-2xl' : 'text-lg'}`}>{value}</span>
     </div>
   )
 }
 
-function StatRow({ label, value, barValue, barColor }: { label: string; value: string; barValue: number; barColor: string }) {
+function StatRow({ label, value, barValue, barColor, large }: { label: string; value: string; barValue: number; barColor: string; large?: boolean }) {
   return (
-    <div className="mb-2">
-      <div className="flex justify-between mb-0.5">
-        <span className="text-xs font-bold text-gray-600">{label}</span>
-        <span className="text-sm font-black text-gray-700">{value}</span>
+    <div className={large ? 'mb-3' : 'mb-2'}>
+      <div className="flex justify-between mb-1">
+        <span className={`font-bold text-gray-600 ${large ? 'text-sm' : 'text-xs'}`}>{label}</span>
+        <span className={`font-black text-gray-700 ${large ? 'text-base' : 'text-sm'}`}>{value}</span>
       </div>
       <StatBar value={barValue} colorClass={barColor} />
     </div>
@@ -363,17 +364,19 @@ function StatRow({ label, value, barValue, barColor }: { label: string; value: s
 }
 
 function PetArea({ mood, lastFed, size }: { mood: PetMood; lastFed: number; size: 'large' | 'small' }) {
-  const dim = size === 'large' ? 400 : 280
+  const dim = size === 'large' ? 340 : 280
   const anim = mood === 'dead' ? 'shake-animation' : mood === 'sick' || mood === 'fat' ? 'wiggle-animation' : 'bounce-animation'
   const message = getPetMessageText(mood, lastFed)
 
   return (
-    <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
+    <div className={`flex-1 rounded-3xl relative min-h-[420px] lg:min-h-0 ${size === 'small' ? 'bg-white/10 shadow-inner border-2 border-white/20 overflow-hidden' : ''}`}>
       {/* 宠物 + 气泡（气泡在上，尖角指向小熊） */}
       <div
-        className={`absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center ${size === 'small' ? 'bottom-[88px]' : 'bottom-4'}`}
+        className={`absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center w-full max-w-md px-4 ${
+          size === 'small' ? 'bottom-[88px]' : 'bottom-[10%]'
+        }`}
       >
-        <div className="mb-3">
+        <div className="mb-3 w-full flex justify-center">
           <PixelSpeechBubble text={message} />
         </div>
         <div className="cursor-pointer hover:scale-105 active:scale-95 transition-transform">

@@ -43,25 +43,20 @@ interface PixelSpeechBubbleProps {
 export default function PixelSpeechBubble({ text, className = '' }: PixelSpeechBubbleProps) {
   const { display, phase } = useTypewriter(text)
   const showCursor = phase !== 'done' || display.length > 0
-  const compact = text.length <= 12
-
   return (
     <div
-      className={`relative inline-block pointer-events-none min-w-[10.8em] max-w-[45vw] md:max-w-[33vw] ${className}`}
+      className={`relative block pointer-events-none w-full max-w-[260px] sm:max-w-[280px] lg:max-w-[300px] mx-auto box-border ${className}`}
       style={{
-        width: 'max-content',
         padding: '0.65em 1em 1.35em',
         backgroundImage: 'url(/pixel-speech-bubble.png)',
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
         imageRendering: 'pixelated',
-        fontSize: 'clamp(21px, 4.7vw, 28px)',
+        fontSize: 'clamp(14px, 2.2vw, 18px)',
       }}
     >
-      <div className="flex items-center justify-center min-h-[4.32em] px-1">
-        <p
-          className={`font-pixel-bold text-center text-gray-900 leading-snug ${compact ? 'whitespace-nowrap' : 'break-words'}`}
-        >
+      <div className="flex items-center justify-center min-h-[3.2em] px-0.5 w-full overflow-hidden">
+        <p className="font-pixel-bold text-center text-gray-900 leading-snug break-words w-full [overflow-wrap:anywhere]">
           {display}
           {showCursor && <span className="typing-cursor">▌</span>}
         </p>

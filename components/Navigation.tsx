@@ -84,8 +84,7 @@ export default function Navigation() {
               width={280}
               height={78}
               priority
-              style={{ width: 'auto', height: 'auto', maxHeight: 78 }}
-              className="md:max-h-[101px]"
+              className="h-[78px] w-auto md:h-[101px] md:w-auto"
             />
           </Link>
 
