@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,11 +14,31 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-/* 游戏化字体优化 */
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Fredoka:wght@300;400;500;600;700&display=swap');
+.font-pixel {
+  font-family: 'DotGothic16', sans-serif;
+}
 
-html {
-  font-family: 'Fredoka', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+.font-pixel-bold {
+  font-family: 'DotGothic16', sans-serif;
+  font-weight: 700;
+  -webkit-text-stroke: 0.35px #1a1a1a;
+  paint-order: stroke fill;
+  letter-spacing: 0.04em;
+}
+
+.font-pixel-en {
+  font-family: 'Press Start 2P', 'DotGothic16', sans-serif;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typing-cursor {
+  animation: blink-cursor 0.55s step-end infinite;
+  margin-left: 1px;
+  -webkit-text-stroke: 0;
 }
 
 /* 游戏化动画 */
@@ -120,7 +142,19 @@ html {
   }
   
   .game-card {
-    @apply bg-gradient-to-br from-purple-100 via-pink-50 to-yellow-100 rounded-3xl shadow-2xl p-8 border-4 border-white;
+    @apply bg-gradient-to-br from-purple-100 via-pink-50 to-yellow-100 rounded-3xl shadow-2xl p-6 border-4 border-white;
+  }
+
+  .game-panel {
+    @apply bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50 backdrop-blur-sm;
+  }
+
+  .panel-title {
+    @apply text-base font-black text-purple-800 mb-3 text-center;
+  }
+
+  .game-btn {
+    @apply text-white font-black py-3 px-5 rounded-full shadow-xl border-4 border-white transform transition-all duration-200 hover:scale-105 active:scale-95 text-sm lg:text-base;
   }
   
   .character-stage {

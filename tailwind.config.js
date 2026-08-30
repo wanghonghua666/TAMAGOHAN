@@ -34,7 +34,9 @@ module.exports = {
         }
       },
       fontFamily: {
-        'japanese': ['Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'sans-serif'],
+        pixel: ['DotGothic16', 'Hiragino Sans', 'sans-serif'],
+        'pixel-en': ['"Press Start 2P"', 'DotGothic16', 'sans-serif'],
+        japanese: ['DotGothic16', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'sans-serif'],
       }
     },
   },

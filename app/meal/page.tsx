@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Camera, Upload, ArrowLeft, Sparkles, CheckCircle } from 'lucide-react'
-import Link from 'next/link'
+import { Camera, Upload, Sparkles, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import MacroAssessment from '@/components/MacroAssessment'
 
 export default function MealPage() {
   // 禁用登录检查，使用游客模式
@@ -75,15 +75,18 @@ export default function MealPage() {
       console.log('开始AI食物识别...', file.name)
       
       // 使用真实的AI分析API
-      const { analyzeFoodImage } = await import('../../lib/food-ai')
+      const { analyzeFoodImage } = await import('@/lib/food-ai')
       const result = await analyzeFoodImage(file)
       
       console.log('AI识别结果:', result)
       
       // 转换结果格式以匹配UI组件
       const formattedResult = {
-        type: result.healthyScore >= 70 ? 'healthy' : result.healthyScore >= 40 ? 'balanced' : 'unhealthy',
-        score: result.healthyScore,
+        isEdible: result.isEdible,
+        type: result.overallScore >= 70 ? 'healthy' : result.overallScore >= 40 ? 'balanced' : 'unhealthy',
+        score: result.overallScore,
+        healthScore: result.healthyScore,
+        portionScore: result.assessment?.portionScore ?? 0,
         message: result.message,
         ingredients: result.ingredients,
         categories: result.categories,
@@ -92,98 +95,38 @@ export default function MealPage() {
           carbs: result.nutritionEstimate.carbs,
           protein: result.nutritionEstimate.protein,
           fat: result.nutritionEstimate.fat,
-          fiber: result.nutritionEstimate.fiber
+          fiber: result.nutritionEstimate.fiber,
+          vegetableServings: result.nutritionEstimate.vegetableServings,
         },
-        recommendations: result.healthyScore >= 80 
-          ? ['素晴らしい食事です！', 'この調子で続けてください！']
-          : result.healthyScore >= 60
-          ? ['良い食事ですね', 'もう少し野菜を増やすとさらに良くなります']
-          : ['栄養バランスを改善しましょう', '野菜と魚を増やしてみてください'],
-        confidence: result.confidence
+        macros: result.assessment?.macros ?? [],
+        tips: result.assessment?.tips ?? [],
+        recommendations: result.assessment?.tips ?? [],
+        confidence: result.confidence,
+        source: result.source,
       }
       
       setAnalysisResult(formattedResult)
       
     } catch (error) {
       console.error('AI分析失敗:', error)
-      
-      // 如果API失败，基于文件名进行简单分析
-      const fileName = file.name.toLowerCase()
-      let fallbackResult
-      
-      if (fileName.includes('katsu') || fileName.includes('tonkatsu')) {
-        fallbackResult = {
-          type: 'balanced',
-          score: 60,
-          message: 'カツ丼ですね！タンパク質は豊富ですが、野菜も一緒に摂りましょう',
-          ingredients: ['豚カツ', 'ご飯', 'キャベツ', '味噌汁', '卵'],
-          categories: [
-            { name: '揚げ物', confidence: 90, isHealthy: false },
-            { name: '和食', confidence: 85, isHealthy: true }
-          ],
-          nutrition: {
-            calories: 650,
-            carbs: 75,
-            protein: 30,
-            fat: 25,
-            fiber: 3
-          },
-          recommendations: [
-            'タンパク質豊富な一品です',
-            '次は野菜サラダも追加してみてください'
-          ]
-        }
-      } else if (fileName.includes('sushi')) {
-        fallbackResult = {
-          type: 'healthy',
-          score: 80,
-          message: 'お寿司ですね！新鮮な魚で健康的です！',
-          ingredients: ['魚', 'ご飯', '海苔', 'わさび'],
-          categories: [
-            { name: '和食', confidence: 95, isHealthy: true },
-            { name: '魚料理', confidence: 90, isHealthy: true }
-          ],
-          nutrition: {
-            calories: 400,
-            carbs: 60,
-            protein: 25,
-            fat: 8,
-            fiber: 2
-          },
-          recommendations: [
-            'オメガ3豊富な健康食品です',
-            'このペースで続けてください'
-          ]
-        }
-      } else {
-        fallbackResult = {
-          type: 'unknown',
-          score: 50,
-          message: '画像の分析に失敗しましたが、食事記録は保存できます',
-          ingredients: ['未知の食材'],
-          categories: [{ name: '未分類', confidence: 50, isHealthy: true }],
-          nutrition: {
-            calories: 300,
-            carbs: 40,
-            protein: 15,
-            fat: 10,
-            fiber: 5
-          },
-          recommendations: [
-            'もう一度異なる角度で撮影してみてください',
-            '明るい場所での撮影をお勧めします'
-          ]
-        }
-      }
-      
-      setAnalysisResult(fallbackResult)
+      setAnalysisResult({
+        isEdible: false,
+        type: 'unknown',
+        score: 0,
+        message: '分析に失敗しました。食事の写真をもう一度アップロードしてください 📸',
+        ingredients: [],
+        categories: [],
+        nutrition: { calories: 0, carbs: 0, protein: 0, fat: 0, fiber: 0 },
+        recommendations: [],
+        source: 'error',
+      })
     }
     
     setLoading(false)
   }
 
   const saveRecord = async () => {
-    console.log('保存记录开始...')
+    if (!analysisResult?.isEdible) return
     if (!analysisResult || !selectedFile) {
       console.error('缺少必要数据:', { analysisResult: !!analysisResult, selectedFile: !!selectedFile })
       alert('保存に必要なデータが不足しています。')
@@ -226,25 +169,14 @@ export default function MealPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* 游戏化头部 */}
-      <div className="mb-8 relative">
-        {/* 游戏背景装饰 */}
-        <div className="absolute -top-5 -right-5 text-3xl opacity-30 float-animation">📸</div>
-        <div className="absolute top-10 -left-5 text-2xl opacity-20 float-animation" style={{ animationDelay: '1s' }}>🌟</div>
-        
-        <Link href="/" className="inline-flex items-center bg-gradient-to-r from-purple-400 to-purple-600 text-white font-bold py-2 px-4 rounded-full shadow-lg transform transition-all duration-200 hover:scale-105 active:scale-95 border-3 border-white mb-6">
-          <ArrowLeft size={20} className="mr-2" />
-          🏠 ホームに戻る
-        </Link>
-        
-        <div className="bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400 rounded-3xl p-6 shadow-2xl border-4 border-white">
-          <h1 className="text-4xl font-black text-white mb-2 text-center bounce-animation" style={{ fontFamily: 'Fredoka One' }}>
-            📸 食事記録 📸
-          </h1>
-          <div className="bg-white/90 rounded-2xl p-3 backdrop-blur-sm">
-            <p className="text-purple-800 font-bold text-center" style={{ fontFamily: 'Fredoka' }}>
-              🍚 食事の写真をアップロードして、AI分析を受けましょう 🍚
-            </p>
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <Camera size={22} className="text-orange-500" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">食事記録</h1>
+            <p className="text-sm text-gray-500">写真をアップロードして AI 分析</p>
           </div>
         </div>
       </div>
@@ -389,7 +321,21 @@ export default function MealPage() {
           )}
 
           {/* 分析結果 */}
-          {analysisResult && (
+          {analysisResult && !analysisResult.isEdible && (
+            <div className="card text-center py-8">
+              <div className="text-6xl mb-4">🚫</div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">食べ物が見つかりません</h3>
+              <p className="text-gray-600 mb-4">{analysisResult.message}</p>
+              <button
+                onClick={() => { setPreview(null); setSelectedFile(null); setAnalysisResult(null) }}
+                className="btn-secondary"
+              >
+                別の写真を選ぶ
+              </button>
+            </div>
+          )}
+
+          {analysisResult && analysisResult.isEdible && (
             <div className="space-y-6">
               {/* スコア表示 */}
               <div className="card text-center">
@@ -398,12 +344,18 @@ export default function MealPage() {
                     {analysisResult.type === 'vegetable' ? '🥗' : 
                      analysisResult.type === 'junk' ? '🍔' : '🍽️'}
                   </div>
-                  <div className="text-4xl font-bold text-primary-600 mb-2">
+                  <div className="text-4xl font-bold text-primary-600 mb-1">
                     {analysisResult.score}/100
                   </div>
-                  <div className="text-lg text-gray-600 mb-4">
-                    健康スコア
+                  <div className="text-lg text-gray-600 mb-1">総合スコア</div>
+                  <div className="text-xs text-gray-400 mb-2">
+                    食品質 {analysisResult.healthScore}点 · 份量 {analysisResult.portionScore}点
                   </div>
+                  {analysisResult.source && (
+                    <div className="text-xs text-gray-400 mb-2">
+                      识别: {analysisResult.source === 'gemini-flash' ? 'Gemini Flash AI' : analysisResult.source}
+                    </div>
+                  )}
                   <div className="w-full bg-gray-200 rounded-full h-4">
                     <div 
                       className={`h-4 rounded-full transition-all duration-1000 ${
@@ -418,6 +370,14 @@ export default function MealPage() {
                   {analysisResult.message}
                 </p>
               </div>
+
+              {/* 宏量营养素评估 */}
+              {analysisResult.macros?.length > 0 && (
+                <MacroAssessment
+                  macros={analysisResult.macros}
+                  portionScore={analysisResult.portionScore}
+                />
+              )}
 
               {/* 詳細分析 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

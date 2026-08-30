@@ -1,47 +1,29 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { DotGothic16 } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
-import Navigation from '@/components/Navigation'
+import AppShell from '@/components/AppShell'
 import ConsentGate from '@/components/ConsentGate'
 
-const inter = Inter({ subsets: ['latin'] })
+const dotGothic = DotGothic16({ weight: '400', subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'くっくぴん( Kukupin - 食事记录育成游戏',
+  title: 'くっくぴん Kukupin - 食事记录育成游戏',
   description: '通过食事记录培养你的虚拟角色',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className={inter.className}>
+      <body className={dotGothic.className}>
         <AuthProvider>
-          <div className="min-h-screen bg-gradient-to-br from-amber-100 via-amber-200 to-yellow-100 relative overflow-hidden">
-            {/* 全局游戏装饰背景 */}
-            <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-30">
-              <div className="absolute top-10 left-10 text-2xl opacity-50 float-animation">🌟</div>
-              <div className="absolute top-20 right-20 text-xl opacity-40 float-animation" style={{ animationDelay: '2s' }}>⭐</div>
-              <div className="absolute bottom-20 left-20 text-3xl opacity-30 float-animation" style={{ animationDelay: '4s' }}>✨</div>
-              <div className="absolute bottom-10 right-10 text-xl opacity-40 float-animation" style={{ animationDelay: '6s' }}>🎮</div>
-            </div>
-            
-            <div className="relative z-10">
-              <Navigation />
-              <main className="container mx-auto px-4 py-8">
-                {children}
-              </main>
-              {/* 全局同意弹窗 */}
-              <ConsentGate />
-            </div>
+          <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-100">
+            <AppShell>{children}</AppShell>
+            <ConsentGate />
           </div>
         </AuthProvider>
       </body>
     </html>
   )
-} 
+}

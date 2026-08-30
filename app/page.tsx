@@ -1,782 +1,420 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useAuth } from '@/lib/auth-context'
-import { Heart, Star, History, Camera, Palette, Award, Zap, ShoppingBag, BookOpen, Settings } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import DemoNotice from '@/components/DemoNotice'
-import { storeItems } from '@/lib/store-items'
+import StatBar from '@/components/StatBar'
+import PixelSpeechBubble from '@/components/PixelSpeechBubble'
+import { UtensilsCrossed } from 'lucide-react'
+import {
+  STORAGE_KEYS,
+  computePetMood,
+  computeLevel,
+  computeHunger,
+  computeHappiness,
+  getTodayStats,
+  getMealHistory,
+  getUserProfile,
+  saveUserProfile,
+  PET_IMAGES,
+  DEX_FORMS,
+  type PetMood,
+  type UserProfileData,
+} from '@/lib/storage'
+import { computeDailyTargets } from '@/lib/meal-assessment'
 
-// 背景配置 - 使用正确的图片路径
-const backgrounds = [
-  { name: '默認', path: '/character-room-bg.png', gradient: 'from-purple-400 to-pink-500' },
-  { name: '森の中', path: '/backgrounds/character-room-bg.png', gradient: 'from-green-400 to-blue-500' },
-  { name: '海辺', path: '/character-room-bg.png', gradient: 'from-blue-400 to-cyan-500' },
-  { name: '山の上', path: '/character-room-bg.png', gradient: 'from-purple-400 to-pink-500' },
-  { name: '桜並木', path: '/character-room-bg.png', gradient: 'from-pink-400 to-rose-500' }
+const BACKGROUNDS = [
+  { name: 'デフォルト', path: '/character-room-bg.png' },
+  { name: '森', path: '/character-room-bg.png' },
 ]
 
+function getPetMessageText(mood: PetMood, lastFed: number): string {
+  const messages: Record<PetMood, string> = {
+    dead: 'やばい...もっと健康的な食事を！',
+    sick: 'うえぇ...ジャンクフードで気持ち悪い',
+    fat: 'ちょっと太りすぎかも...運動しよう！',
+    indian: 'カレー三昧！スパイシーだよ',
+    strong: '元気だよ！健康的な食事ありがとう！',
+    happy: lastFed > 3 ? 'お腹がすいたよ～' : '元気だよ！',
+  }
+  return messages[mood]
+}
+
 export default function HomePage() {
-  const { user, logout, isDemo } = useAuth()
+  return (
+    <Suspense fallback={
+      <div className="min-h-[calc(100vh-7rem)] flex items-center justify-center bg-gradient-to-b from-sky-200 to-green-100">
+        <p className="text-lg font-bold text-purple-800">読み込み中...</p>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
+  )
+}
+
+function HomeContent() {
+  const searchParams = useSearchParams()
+  const [isClient, setIsClient] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [currentBackground, setCurrentBackground] = useState(0)
-  const [showBackgroundSelector, setShowBackgroundSelector] = useState(false)
-  const [petMood, setPetMood] = useState<'happy' | 'strong' | 'sick' | 'dead' | 'fat' | 'indian'>('happy')
-  const [lastFed, setLastFed] = useState(2) // 小时
-  const [healthScore, setHealthScore] = useState(85) // 健康分数
-  const [lastMealScore, setLastMealScore] = useState(null as number | null) // 最后一餐的分数
+  const [showDex, setShowDex] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  const [healthScore, setHealthScore] = useState(75)
+  const [lastMealScore, setLastMealScore] = useState<number | null>(null)
+  const [lastFed, setLastFed] = useState(0)
   const [proteinValue, setProteinValue] = useState(0)
   const [fatValue, setFatValue] = useState(0)
   const [indianMode, setIndianMode] = useState(false)
-  const [showDex, setShowDex] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [isClient, setIsClient] = useState(false) // 添加客户端检查
-  const [isDesktop, setIsDesktop] = useState(false)
-  const [purchasedItems, setPurchasedItems] = useState<string[]>([])
+  const [level, setLevel] = useState(1)
+  const [todayStats, setTodayStats] = useState({ count: 0, totalCalories: 0, healthScore: 75 })
+  const [profile, setProfile] = useState<UserProfileData>({ weightKg: 60, heightCm: 170, goal: 'maintain', activity: 'moderate' })
 
-  // 当形态变化时写入图鉴解锁
-  useEffect(() => {
-    if (!isClient) return
-    const key = `dex-${petMood}`
-    if (!localStorage.getItem(key)) {
-      localStorage.setItem(key, 'unlocked')
+  const petMood = computePetMood(healthScore, lastMealScore, proteinValue, fatValue, indianMode)
+  const happiness = computeHappiness(healthScore, lastMealScore)
+  const hunger = computeHunger(lastFed)
+
+  const loadData = useCallback(() => {
+    if (typeof window === 'undefined') return
+
+    const saved = localStorage.getItem(STORAGE_KEYS.healthScore)
+    setHealthScore(saved ? parseInt(saved) : 75)
+    if (!saved) localStorage.setItem(STORAGE_KEYS.healthScore, '75')
+
+    const meal = localStorage.getItem(STORAGE_KEYS.lastMealScore)
+    setLastMealScore(meal ? parseInt(meal) : null)
+
+    const fed = localStorage.getItem(STORAGE_KEYS.lastFed)
+    if (fed) {
+      setLastFed(Math.floor((Date.now() - parseInt(fed)) / 3600000))
     }
-  }, [petMood, isClient])
 
-  // 客户端检查
-  useEffect(() => {
-    setIsClient(true)
+    setProteinValue(parseInt(localStorage.getItem(STORAGE_KEYS.protein) || '0'))
+    setFatValue(parseInt(localStorage.getItem(STORAGE_KEYS.fat) || '0'))
+    setIndianMode(!!localStorage.getItem(STORAGE_KEYS.indianMode))
+
+    const bg = localStorage.getItem(STORAGE_KEYS.background)
+    if (bg) setCurrentBackground(parseInt(bg))
+
+    const meals = getMealHistory()
+    setLevel(computeLevel(meals.length))
+    setTodayStats(getTodayStats())
+    setProfile(getUserProfile())
   }, [])
 
-  // 侦测窗口尺寸用于切换桌面背景
+  useEffect(() => {
+    setIsClient(true)
+    loadData()
+  }, [loadData])
+
   useEffect(() => {
     if (!isClient) return
-    const handleResize = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [isClient])
 
-  // 小熊状态逻辑 - 只在客户端执行
   useEffect(() => {
-    if (!isClient) return // 防止hydration错误
-    
-    // 检查localStorage中的健康数据
-    if (typeof window !== 'undefined') {
-      const savedHealthScore = localStorage.getItem('pet-health-score')
-      const savedLastMealScore = localStorage.getItem('last-meal-score')
-      const savedLastFed = localStorage.getItem('last-fed-time')
-      
-      if (savedHealthScore) {
-        setHealthScore(parseInt(savedHealthScore))
-      }
-      if (savedLastMealScore) {
-        setLastMealScore(parseInt(savedLastMealScore))
-      }
-      if (savedLastFed) {
-        const fedTime = parseInt(savedLastFed)
-        const now = Date.now()
-        const hoursAgo = Math.floor((now - fedTime) / (1000 * 60 * 60))
-        setLastFed(hoursAgo)
-      }
-      const savedProtein = localStorage.getItem('protein-value')
-      if (savedProtein) setProteinValue(parseInt(savedProtein))
-      const savedFat = localStorage.getItem('fat-value')
-      if (savedFat) setFatValue(parseInt(savedFat))
-      const savedIndian = localStorage.getItem('indian-mode')
-      setIndianMode(!!savedIndian)
+    if (!isClient) return
+    localStorage.setItem(`dex-${petMood}`, 'unlocked')
+  }, [petMood, isClient])
 
-      // ===== 默认基准值 =====
-      if (!savedHealthScore) {
-        const base = 75
-        localStorage.setItem('pet-health-score', base.toString())
-        setHealthScore(base)
-      }
-      if (!savedProtein) {
-        localStorage.setItem('protein-value', '0')
-      }
-      if (!savedFat) {
-        localStorage.setItem('fat-value', '0')
-      }
-    }
-  }, [isClient])
-
-  // 根据各项指标决定小熊状态
   useEffect(() => {
-    if (!isClient) return // 防止hydration错误
-    
-    const proteinThreshold = 75
-    const fatThreshold = 75
-
-    if (indianMode) {
-      setPetMood('indian')
-    } else if (lastMealScore !== null && lastMealScore < 20) {
-      setPetMood('sick')
-    } else if (fatValue >= fatThreshold) {
-      setPetMood('fat')
-    } else if (healthScore < 30) {
-      setPetMood('dead')
-    } else if (proteinValue >= proteinThreshold) {
-      setPetMood('strong')
-    } else if (healthScore > 80) {
-      setPetMood('happy')
-    } else {
-      setPetMood('happy')
-    }
-  }, [healthScore, lastMealScore, proteinValue, fatValue, indianMode, isClient])
-
-  // 获取小熊组件
-  const getPetComponent = (size: 'large' | 'small' = 'large') => {
-    // 根据心情状态选择不同的效果
-    const getClassName = () => {
-      switch (petMood) {
-        case 'dead':
-          return 'grayscale shake-animation'
-        case 'sick':
-          return 'wiggle-animation'
-        case 'fat':
-          return 'wiggle-animation'
-        case 'indian':
-          return 'bounce-animation'
-        case 'strong':
-          return 'bounce-animation'
-        case 'happy':
-        default:
-          return 'bounce-animation'
-      }
-    }
-
-    // 桌面版使用更大尺寸,移动版使用较小尺寸
-    const dimensions = size === 'large' ? { width: 1000, height: 1000 } : { width: 400, height: 400 }
-    // 在桌面版使用较为合适的尺寸，并随着屏幕继续变大渐进放大，防止过度膨胀导致位置错乱
-    const emojiSize = size === 'large' 
-      ? 'text-[320px] lg:text-[400px] xl:text-[480px]' // 调整Emoji大小（响应式）
-      : 'text-[180px]'
-    const scaleClass = size === 'large' ? 'scale-110' : 'scale-100'
-
-    // 根据心情选择图片资源
-    const moodImageMap: Record<string, string> = {
-      dead: '/kukupinDead.png',
-      sick: '/KukupinPuke.png',
-      strong: '/KukupinStrong.png',
-      fat: '/kukupinFatDebu-Photoroom.png',
-      indian: '/kukupinIndian.png',
-      happy: '/kukupinHappy.png',
-    }
-
-    const src = moodImageMap[petMood] || '/kukupinHappy.png'
-
-    return (
-      <Image
-        src={src}
-        alt="くっくぴん"
-        width={dimensions.width}
-        height={dimensions.height}
-        className={`${getClassName()} ${scaleClass}`}
-        priority
-      />
-    )
-  }
-
-  // 获取小熊状态消息
-  const getPetMessage = () => {
-    switch (petMood) {
-      case 'dead':
-        return 'やばい...もっと健康的な食事を！💀'
-      case 'sick':
-        return 'うえぇ...ジャンクフードで気持ち悪い 🤢'
-      case 'fat':
-        return 'ちょっと太りすぎかも...運動しよう！🍩'
-      case 'indian':
-        return 'カレー三昧！スパイシーだよ🌶️'
-      case 'strong':
-        return '元気だよ！健康的な食事ありがとう！✨'
-      case 'happy':
-      default:
-        return lastFed > 3 ? "お腹がすいたよ～ 🍚" : "元気だよ！ 😊"
-    }
-  }
-
-  // 处理小熊点击
-  const handlePetClick = () => {
-    if (petMood === 'strong') {
-      // 添加额外动画或效果
-      console.log('Pet is very happy!')
-    }
-  }
-
-  // 时间更新
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // 格式化时间
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('ja-JP', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    })
-  }
-
-  // 背景切换处理
-  const handleBackgroundChange = (index: number) => {
-    setCurrentBackground(index)
-    setShowBackgroundSelector(false)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selected-background', index.toString())
-    }
-  }
-
-  // 从localStorage恢复背景设置 - 只在客户端执行
   useEffect(() => {
-    if (!isClient) return // 防止hydration错误
-    
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('selected-background')
-      if (saved) {
-        setCurrentBackground(parseInt(saved))
-      }
-    }
-  }, [isClient])
+    const panel = searchParams.get('panel')
+    if (panel === 'dex') setShowDex(true)
+    if (panel === 'settings') setShowSettings(true)
+  }, [searchParams])
 
-  // 如果还没有在客户端渲染，显示简化版本
+  useEffect(() => {
+    const onDex = () => setShowDex(true)
+    const onSettings = () => setShowSettings(true)
+    window.addEventListener('kukupin:open-dex', onDex)
+    window.addEventListener('kukupin:open-settings', onSettings)
+    return () => {
+      window.removeEventListener('kukupin:open-dex', onDex)
+      window.removeEventListener('kukupin:open-settings', onSettings)
+    }
+  }, [])
+
   if (!isClient) {
     return (
-      <div 
-        className="min-h-screen relative overflow-hidden"
-        style={{
-          backgroundImage: `url('${backgrounds[0].path}')`,
-          backgroundSize: '100% 100%',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
-        <div className="h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="bounce-animation mb-4">
-              <Image
-                src="/kukupin.png"
-                alt="くっくぴん"
-                width={200}
-                height={200}
-                className="mx-auto"
-              />
-            </div>
-            <div className="bg-white/95 rounded-full px-6 py-3 shadow-lg">
-              <p className="text-xl font-bold text-purple-800">読み込み中...</p>
-            </div>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-sky-200 to-green-100">
+        <div className="text-center">
+          <Image src="/kukupin.png" alt="くっくぴん" width={160} height={160} className="mx-auto bounce-animation" />
+          <p className="mt-4 text-lg font-bold text-purple-800">読み込み中...</p>
         </div>
       </div>
     )
   }
 
+  const bgPath = isDesktop ? '/background2.png' : BACKGROUNDS[currentBackground].path
+  const healthColor = healthScore < 30 ? 'bg-gradient-to-r from-red-500 to-red-400'
+    : healthScore < 60 ? 'bg-gradient-to-r from-orange-400 to-yellow-400'
+    : 'bg-gradient-to-r from-green-400 to-emerald-500'
+
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden"
+    <div
+      className="relative overflow-hidden"
       style={{
-        backgroundImage: `url('${isDesktop ? '/background2.png' : backgrounds[currentBackground].path}')`,
-        backgroundSize: '100% 100%',
+        minHeight: 'calc(100vh - 7rem)',
+        backgroundImage: `url('${bgPath}')`,
+        backgroundSize: 'cover',
         backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
       }}
     >
-      {/* 移除所有覆盖层和效果，保持原始图片 */}
-      
-      {/* 背景装饰 - 减少透明度 */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-10 left-10 text-4xl opacity-5 float-animation">🌟</div>
-        <div className="absolute top-20 right-20 text-3xl opacity-5 float-animation" style={{ animationDelay: '1s' }}>⭐</div>
-        <div className="absolute bottom-20 left-20 text-5xl opacity-5 float-animation" style={{ animationDelay: '2s' }}>✨</div>
-        <div className="absolute bottom-10 right-10 text-3xl opacity-5 float-animation" style={{ animationDelay: '3s' }}>🎮</div>
-
-        {/* 已购买道具装饰 */}
-        {purchasedItems.map((id) => {
-          const item = storeItems.find(i => i.id === id)
-          if (!item) return null
-          // 简单定位规则
-          const styleMap: Record<string, React.CSSProperties> = {
-            plant: { bottom: '15%', left: '10%' },
-            sofa: { bottom: '5%', right: '10%' },
-            lamp: { top: '15%', right: '15%' },
-            art: { top: '20%', left: '45%' }
-          }
-          const posStyle = styleMap[id] || { bottom: '10%', left: '50%' }
-          return (
-            <div key={id} style={{ position: 'absolute', fontSize: '48px', pointerEvents: 'none', ...posStyle }}>
-              {item.emoji}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* 背景切换按钮 - 已隐藏 */}
-
-      {/* 主游戏界面 */}
-      <div className="h-screen flex flex-col relative z-10">
-        {/* 桌面版布局 */}
+      <div className="flex flex-col relative z-10" style={{ minHeight: 'calc(100vh - 7rem)' }}>
         <div className="hidden lg:grid lg:grid-cols-12 lg:gap-3 p-3 flex-1">
-          {/* 左侧状态栏 */}
+          {/* 左：状态 */}
           <div className="lg:col-span-2 space-y-3">
-            <div className="bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50">
-              <h3 className="text-lg font-black text-purple-800 mb-3 text-center">📊 ステータス</h3>
-              
-              {/* 等级 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">🌟 レベル</span>
-                  <span className="text-xl font-black text-yellow-600">12</span>
-                </div>
-                <div className="stat-bar">
-                  <div className="stat-fill bg-gradient-to-r from-yellow-400 to-orange-500 w-3/4"></div>
-                </div>
-              </div>
-
-              {/* 健康度 - 使用动态健康分数 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">❤️ 健康度</span>
-                  <span className={`text-lg font-black ${healthScore < 30 ? 'text-red-600' : healthScore < 60 ? 'text-orange-500' : 'text-green-500'}`}>
-                    {healthScore}%
-                  </span>
-                </div>
-                <div className="stat-bar">
-                  <div className={`stat-fill w-[${healthScore}%] ${healthScore < 30 ? 'bg-gradient-to-r from-red-600 to-red-400' : healthScore < 60 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' : 'bg-gradient-to-r from-green-400 to-emerald-500'}`}></div>
-                </div>
-              </div>
-
-              {/* 幸福度 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">😊 幸福度</span>
-                  <span className="text-lg font-black text-green-500">92%</span>
-                </div>
-                <div className="stat-bar">
-                  <div className="stat-fill bg-gradient-to-r from-green-400 to-emerald-500 w-[92%]"></div>
-                </div>
-              </div>
-
-              {/* 饥饿度 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">🍽️ 空腹度</span>
-                  <span className="text-lg font-black text-orange-500">65%</span>
-                </div>
-                <div className="stat-bar">
-                  <div className="stat-fill bg-gradient-to-r from-orange-400 to-red-500 w-[65%]"></div>
-                </div>
-              </div>
-
-              {/* タンパク質 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">💪 タンパク質</span>
-                  <span className="text-lg font-black text-purple-600">{proteinValue}</span>
-                </div>
-                <div className="stat-bar">
-                  <div className={`stat-fill bg-gradient-to-r from-purple-400 to-purple-600 w-[${Math.min(100, Math.round(proteinValue/2))}%]`}></div>
-                </div>
-              </div>
-
-              {/* 脂肪 */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-gray-700">🍩 脂肪</span>
-                  <span className="text-lg font-black text-pink-600">{fatValue}</span>
-                </div>
-                <div className="stat-bar">
-                  <div className={`stat-fill bg-gradient-to-r from-pink-400 to-red-600 w-[${Math.min(100, Math.round(fatValue/2))}%]`}></div>
-                </div>
-              </div>
-            </div>
-
-            {/* 时间显示 */}
-            <div className="bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50 text-center">
-              <div className="text-2xl font-black text-purple-800 mb-1">
-                {formatTime(currentTime)}
-              </div>
-              <div className="text-xs text-gray-600">
-                最後の食事: {lastFed}時間前
-              </div>
+            <div className="game-panel">
+              <h3 className="panel-title">📊 ステータス</h3>
+              <StatusRow label="🌟 レベル" value={`Lv.${level}`} color="text-yellow-600" />
+              <StatRow label="❤️ 健康度" value={`${healthScore}%`} barValue={healthScore} barColor={healthColor} />
+              <StatRow label="😊 幸福度" value={`${happiness}%`} barValue={happiness} barColor="bg-gradient-to-r from-green-400 to-emerald-500" />
+              <StatRow label="🍽️ 空腹度" value={`${hunger}%`} barValue={hunger} barColor="bg-gradient-to-r from-orange-400 to-red-400" />
+              <StatRow label="💪 タンパク質" value={String(proteinValue)} barValue={Math.min(100, proteinValue / 2)} barColor="bg-gradient-to-r from-purple-400 to-purple-600" />
+              <StatRow label="🍩 脂肪" value={String(fatValue)} barValue={Math.min(100, fatValue / 2)} barColor="bg-gradient-to-r from-pink-400 to-red-500" />
+              <p className="text-xs text-gray-500 text-center mt-2">最後の食事: {lastFed}時間前</p>
             </div>
           </div>
 
-          {/* 中央互动区域 */}
+          {/* 中：宠物 */}
           <div className="lg:col-span-8 flex flex-col">
-            {/* 宠物互动主区域 */}
-            <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
-              {/* 互动提示 */}
-              <div className="absolute top-4 left-4 bg-white/90 rounded-full px-4 py-2 shadow-lg z-20">
-                <span className="text-sm font-bold text-purple-800">👆 タップして遊ぼう！</span>
-              </div>
-
-              {/* 桌面版對話氣泡 - 固定左上角 */}
-              <div className={`hidden lg:block absolute top-8 left-8 max-w-xs rounded-2xl px-6 py-4 shadow-xl ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative z-30`}>
-                {/* 气泡尾巴 */}
-                <div className={`absolute -bottom-3 left-8 w-0 h-0 border-l-[15px] border-r-[15px] border-t-[15px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
-                <p className={`text-xl font-bold leading-relaxed ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
-                  {getPetMessage()}
-                </p>
-              </div>
-
-              {/* 移除3D地毯效果，使用图片原有的地毯 */}
-
-              {/* 宠物显示区域 - 在图片的地毯位置 */}
-              <div 
-                className="absolute bottom-[40px] lg:bottom-[10px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10 touch-manipulation"
-                onClick={handlePetClick}
-
-              >
-                <div className="text-center">
-                  {/* 宠物角色 */}
-                  <div className="relative">
-                    <div className={`${petMood === 'strong' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
-                      {getPetComponent('large')}
-                    </div>
-                    {petMood === 'strong' && (
-                      <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
-                    )}
-                    {petMood === 'sick' && (
-                      <div className="absolute -top-4 -left-4 text-3xl float-animation">🤧</div>
-                    )}
-                    {petMood === 'dead' && (
-                      <div className="absolute -bottom-4 -right-4 text-3xl pulse-animation">⚰️</div>
-                    )}
-                    {lastFed > 3 && petMood === 'happy' && (
-                      <div className="absolute -bottom-4 -left-4 text-3xl float-animation">😋</div>
-                    )}
-                  </div>
-
-                  {/* 对话气泡 - 桌面版固定左上角,移动版在角色头顶 */}
-                  <div className={`lg:hidden absolute -top-[120px] left-1/2 transform -translate-x-1/2 max-w-[280px] rounded-2xl px-4 py-3 shadow-xl ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative z-30`}>
-                    {/* 气泡尾巴 */}
-                    <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[12px] border-r-[12px] border-t-[12px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
-                    <p className={`text-lg font-bold leading-tight ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
-                      {getPetMessage()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 分离的互动按钮区域 - 删除药物按钮 */}
-              <div className="absolute top-1/2 -translate-y-1/2 right-8 flex flex-col space-y-4">
-                <Link href="/meal">
-                  <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">
-                    🍽️ 食事をあげる
-                  </button>
-                </Link>
-                
-                <button className="bg-gradient-to-r from-blue-400 to-purple-500 text-white font-black text-lg py-4 px-6 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white">
-                  🎮 遊ぶ
-                </button>
-              </div>
-            </div>
+            <PetArea mood={petMood} lastFed={lastFed} size="large" />
           </div>
 
-          {/* 右侧信息栏 */}
+          {/* 右：今日记录 */}
           <div className="lg:col-span-2 space-y-3">
-            <div className="bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50">
-              <h3 className="text-lg font-black text-purple-800 mb-3 text-center">🏆 実績</h3>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-lg">
-                  <div className="flex items-center space-x-1">
-                    <Award className="w-3 h-3 text-yellow-600" />
-                    <span className="text-xs font-bold text-yellow-800">健康食品マスター</span>
-                  </div>
-                  <span className="text-xs text-yellow-600">3/5</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 bg-gradient-to-r from-green-100 to-green-200 rounded-lg">
-                  <div className="flex items-center space-x-1">
-                    <Zap className="w-3 h-3 text-green-600" />
-                    <span className="text-xs font-bold text-green-800">連続記録</span>
-                  </div>
-                  <span className="text-xs text-green-600">7日</span>
-                </div>
-                
-                <div className="flex items-center justify-between p-2 bg-gradient-to-r from-blue-100 to-blue-200 rounded-lg">
-                  <div className="flex items-center space-x-1">
-                    <Star className="w-3 h-3 text-blue-600" />
-                    <span className="text-xs font-bold text-blue-800">レベルアップ</span>
-                  </div>
-                  <span className="text-xs text-blue-600">NEW!</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50">
-              <h3 className="text-lg font-black text-purple-800 mb-3 text-center">📈 今日の記録</h3>
-              
-              <div className="space-y-2">
-                <div className="text-center">
-                  <div className="text-2xl font-black text-green-600 mb-1">3</div>
-                  <div className="text-xs text-gray-600">食事回数</div>
-        </div>
-
-                <div className="text-center">
-                  <div className="text-2xl font-black text-blue-600 mb-1">2,150</div>
-                  <div className="text-xs text-gray-600">総カロリー</div>
-                </div>
-                
-                <div className="text-center">
-                  <div className={`text-2xl font-black mb-1 ${healthScore < 30 ? 'text-red-600' : healthScore < 60 ? 'text-orange-500' : 'text-green-600'}`}>{healthScore}</div>
-                  <div className="text-xs text-gray-600">健康スコア</div>
-                </div>
+            <div className="game-panel">
+              <h3 className="panel-title">📈 今日の記録</h3>
+              <div className="grid grid-cols-1 gap-3 text-center">
+                <div><div className="text-2xl font-black text-green-600">{todayStats.count}</div><div className="text-xs text-gray-500">食事回数</div></div>
+                <div><div className="text-2xl font-black text-blue-600">{todayStats.totalCalories}</div><div className="text-xs text-gray-500">総カロリー</div></div>
+                <div><div className="text-2xl font-black text-purple-600">{healthScore}</div><div className="text-xs text-gray-500">健康スコア</div></div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 手机版布局 */}
-        <div className="lg:hidden flex flex-col h-full p-2">
-          {/* 手机版顶部状态栏 */}
-          <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-3 mb-3 shadow-lg border border-white/30">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-1">
-                  <Heart className="w-4 h-4 text-red-500" />
-                  <span className={`font-bold ${healthScore < 30 ? 'text-red-600' : healthScore < 60 ? 'text-orange-500' : 'text-green-500'}`}>{healthScore}%</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Star className="w-4 h-4 text-yellow-500" />
-                  <span className="font-bold text-yellow-600">Lv.12</span>
-                </div>
+        {/* 移动版 */}
+        <div className="lg:hidden flex flex-col flex-1 p-2">
+          <div className="game-panel mb-2 py-2 px-3">
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex gap-3">
+                <span className="font-bold text-red-500">❤️ {healthScore}%</span>
+                <span className="font-bold text-yellow-600">Lv.{level}</span>
               </div>
-              <div className="text-right">
-                <div className="text-lg font-black text-purple-800">
-                  {formatTime(currentTime)}
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1">
-                <span className="text-purple-600 font-bold">💪 {proteinValue}</span>
-            </div>
-            <div className="flex items-center space-x-1">
-                <span className="text-pink-600 font-bold">🍩 {fatValue}</span>
+              <span className="font-bold text-purple-800 text-xs">
+                {currentTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </span>
             </div>
           </div>
-
-          {/* 手机版宠物互动区域 */}
-          <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
-            {/* 互动提示 */}
-            <div className="absolute top-4 left-4 bg-white/90 rounded-full px-4 py-2 shadow-lg z-20">
-              <span className="text-sm font-bold text-purple-800">👆 タップして遊ぼう！</span>
-            </div>
-
-            {/* 移除3D地毯效果 */}
-
-            {/* 对话气泡 - 手机版，放在顶部 */}
-            <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 z-20">
-              <div className={`max-w-[280px] rounded-2xl px-4 py-3 shadow-xl ${petMood === 'dead' ? 'bg-red-200/95' : petMood === 'sick' ? 'bg-yellow-200/95' : 'bg-white/95'} relative`}>
-                {/* 气泡尾巴 */}
-                <div className={`absolute -bottom-[10px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-r-[10px] border-t-[10px] border-l-transparent border-r-transparent ${petMood === 'dead' ? 'border-t-red-200/95' : petMood === 'sick' ? 'border-t-yellow-200/95' : 'border-t-white/95'}`}></div>
-                <p className={`text-base font-bold leading-tight text-center ${petMood === 'dead' ? 'text-red-800' : petMood === 'sick' ? 'text-orange-800' : 'text-purple-800'}`}>
-                  {getPetMessage()}
-                </p>
-              </div>
-            </div>
-
-            {/* 宠物显示区域 */}
-            <div 
-              className="absolute bottom-[30px] left-1/2 transform -translate-x-1/2 cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 z-10 touch-manipulation"
-              onClick={handlePetClick}
-
-            >
-              <div className="text-center">
-                {/* 宠物角色 - 使用小尺寸 */}
-                <div className="relative">
-                  <div className={`${petMood === 'strong' ? 'bounce-animation' : petMood === 'sick' ? 'wiggle-animation' : petMood === 'dead' ? 'shake-animation' : 'bounce-animation'}`}>
-                    {getPetComponent('small')}
-                  </div>
-                  {petMood === 'strong' && (
-                    <div className="absolute -top-4 -right-4 text-4xl wiggle-animation">💫</div>
-                  )}
-                  {petMood === 'sick' && (
-                    <div className="absolute -top-4 -left-4 text-3xl float-animation">🤧</div>
-                  )}
-                  {petMood === 'dead' && (
-                    <div className="absolute -bottom-4 -right-4 text-3xl pulse-animation">⚰️</div>
-                  )}
-                  {lastFed > 3 && petMood === 'happy' && (
-                    <div className="absolute -bottom-4 -left-4 text-3xl float-animation">😋</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 手机版互动按钮 - 删除药物按钮 */}
-            <div className="absolute top-1/2 -translate-y-1/2 right-4 flex flex-col space-y-3">
-              <Link href="/meal">
-                <button className="bg-gradient-to-r from-orange-400 to-red-500 text-white font-black text-sm py-3 px-4 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white pulse-animation">
-                  🍽️ 食事
-                </button>
-              </Link>
-              
-              <button className="bg-gradient-to-r from-blue-400 to-purple-500 text-white font-black text-sm py-3 px-4 rounded-full shadow-xl transform transition-all duration-200 hover:scale-110 active:scale-95 border-4 border-white">
-                🎮 遊ぶ
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 底部导航栏 - 固定在底部 */}
-        <div className="bg-white/95 rounded-t-2xl shadow-xl border-t-2 border-white/50 p-4">
-          <div className="flex items-center justify-around max-w-md mx-auto">
-            <Link href="/" className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
-              <div className="bg-purple-100 rounded-full p-2">
-                <Heart className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-xs font-bold text-purple-800">主頁</span>
-            </Link>
-            
-            <Link href="/meal" className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
-              <div className="bg-orange-100 rounded-full p-2">
-                <Camera className="w-5 h-5 text-orange-600" />
-              </div>
-              <span className="text-xs font-bold text-purple-800">食事記録</span>
-            </Link>
-            
-            <Link href="/history" className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
-              <div className="bg-blue-100 rounded-full p-2">
-                <History className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-xs font-bold text-purple-800">履歴</span>
-            </Link>
-            
-            <button onClick={()=>setShowDex(true)} className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
-              <div className="bg-green-100 rounded-full p-2">
-                <BookOpen className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-xs font-bold text-purple-800">図鑑</span>
-            </button>
-            
-            <button onClick={()=>setShowSettings(true)} className="flex flex-col items-center space-y-1 p-2 rounded-xl hover:bg-purple-100 transition-colors">
-              <div className="bg-gray-100 rounded-full p-2">
-                <Settings className="w-5 h-5 text-gray-600" />
-              </div>
-              <span className="text-xs font-bold text-purple-800">設定</span>
-            </button>
-          </div>
+          <PetArea mood={petMood} lastFed={lastFed} size="small" />
         </div>
       </div>
 
-      {/* Demo通知 - 绝对定位在右下角 */}
-      <div className="fixed bottom-4 right-4 max-w-sm z-50">
+      <div className="fixed bottom-4 right-3 max-w-xs z-50 hidden md:block">
         <DemoNotice />
       </div>
-      {showDex && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999]" onClick={()=>setShowDex(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
-            <h2 className="text-xl font-black text-purple-800 mb-4 text-center">くっくぴん図鑑</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                'default','strong','fat','sick','dead','indian',
-                'mystery1','mystery2','mystery3','mystery4','mystery5','mystery6',
-                'mystery7','mystery8','mystery9'
-              ].map(form=>{
-                const unlocked = form==='default' || (typeof window!=='undefined' && localStorage.getItem(`dex-${form}`))
-                const imgMap: Record<string,string> = {
-                  default:'/kukupinHappy.png',
-                  strong:'/KukupinStrong.png',
-                  fat:'/kukupinFatDebu-Photoroom.png',
-                  sick:'/KukupinPuke.png',
-                  dead:'/kukupinDead.png',
-                  indian:'/kukupinIndian.png'
-                }
-                
 
-                
+      {/* 图鉴 */}
+      {showDex && (
+        <Modal onClose={() => setShowDex(false)} title="くっくぴん図鑑">
+          <div className="grid grid-cols-3 gap-4">
+            {DEX_FORMS.map(form => {
+              const unlocked = form.id === 'happy' || localStorage.getItem(`dex-${form.id}`)
+              return (
+                <div key={form.id} className="flex flex-col items-center">
+                  {unlocked ? (
+                    <Image src={form.image} alt={form.label} width={72} height={72} />
+                  ) : (
+                    <div className="w-[72px] h-[72px] bg-gray-200 rounded-full flex items-center justify-center text-2xl text-gray-400">?</div>
+                  )}
+                  <span className="text-xs font-bold mt-1">{unlocked ? form.label : '？？'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {/* 设置 */}
+      {showSettings && (
+        <Modal onClose={() => setShowSettings(false)} title="設定">
+          <div className="space-y-4">
+            {/* 用户体征 */}
+            <div className="bg-purple-50 rounded-xl p-4 space-y-3">
+              <h3 className="font-bold text-purple-800 text-sm">👤 あなたのプロフィール</h3>
+              <p className="text-xs text-gray-500">体重に合わせて1食の目標量を計算します</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-medium text-gray-600">
+                  体重 (kg)
+                  <input type="number" min={30} max={200} value={profile.weightKg}
+                    onChange={e => setProfile(p => ({ ...p, weightKg: Number(e.target.value) }))}
+                    className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm" />
+                </label>
+                <label className="text-xs font-medium text-gray-600">
+                  身長 (cm)
+                  <input type="number" min={120} max={220} value={profile.heightCm}
+                    onChange={e => setProfile(p => ({ ...p, heightCm: Number(e.target.value) }))}
+                    className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm" />
+                </label>
+              </div>
+              <label className="text-xs font-medium text-gray-600 block">
+                目標
+                <select value={profile.goal} onChange={e => setProfile(p => ({ ...p, goal: e.target.value as UserProfileData['goal'] }))}
+                  className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm">
+                  <option value="maintain">体重維持</option>
+                  <option value="lose">減量</option>
+                  <option value="gain">増量</option>
+                </select>
+              </label>
+              <label className="text-xs font-medium text-gray-600 block">
+                活動量
+                <select value={profile.activity} onChange={e => setProfile(p => ({ ...p, activity: e.target.value as UserProfileData['activity'] }))}
+                  className="mt-1 w-full border rounded-lg px-2 py-1.5 text-sm">
+                  <option value="low">少ない（デスクワーク）</option>
+                  <option value="moderate">普通</option>
+                  <option value="high">多い（運動習慣あり）</option>
+                </select>
+              </label>
+              {(() => {
+                const t = computeDailyTargets(profile)
+                const per = { calories: Math.round(t.calories/3), protein: Math.round(t.protein/3), carbs: Math.round(t.carbs/3), vegetables: Math.round(t.vegetables/3*10)/10 }
                 return (
-                  <div key={form} className="flex flex-col items-center">
-                    {unlocked ? (
-                      <Image src={imgMap[form]} alt={form} width={80} height={80} />
-                    ) : (
-                      <div className="w-20 h-20 bg-gray-300 rounded-full flex items-center justify-center text-3xl text-gray-600 shadow-lg border-2 border-white/50">?</div>
-                    )}
-                    <span className="text-xs font-bold mt-1">
-                      {form.startsWith('mystery') ? '？' : form}
-                    </span>
+                  <div className="text-xs text-gray-600 bg-white rounded-lg p-2">
+                    <p className="font-bold text-purple-700 mb-1">1食の目標目安</p>
+                    <p>🔥 {per.calories} kcal · 💪 {per.protein}g タンパク質 · 🍚 {per.carbs}g 炭水化物 · 🥬 {per.vegetables}份 野菜</p>
                   </div>
                 )
-              })}
-            </div>
-            <button className="mt-4 mx-auto block bg-purple-500 text-white font-bold px-4 py-2 rounded-full" onClick={()=>setShowDex(false)}>閉じる</button>
-          </div>
-        </div>
-      )}
-      
-      {/* 设置弹窗 */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999]" onClick={()=>setShowSettings(false)}>
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={e=>e.stopPropagation()}>
-            <h2 className="text-xl font-black text-purple-800 mb-4 text-center">設定</h2>
-            
-            {/* 数据保存同意设置 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">データ保存の同意</h3>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-sm text-gray-700 mb-3">
-                  本ゲームではスコア・図鑑などをお使いのブラウザのローカルストレージに保存します。
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">データ保存</span>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-sm font-bold ${localStorage.getItem('kukupin-consent')==='1' ? 'text-green-600' : 'text-red-600'}`}>
-                      {localStorage.getItem('kukupin-consent')==='1' ? '有効' : '無効'}
-                    </span>
-                    <button
-                      onClick={() => {
-                        if (localStorage.getItem('kukupin-consent')==='1') {
-                          localStorage.removeItem('kukupin-consent')
-                        } else {
-                          localStorage.setItem('kukupin-consent', '1')
-                        }
-                        setShowSettings(false)
-                      }}
-                      className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
-                        localStorage.getItem('kukupin-consent')==='1' 
-                          ? 'bg-red-500 hover:bg-red-600 text-white' 
-                          : 'bg-green-500 hover:bg-green-600 text-white'
-                      }`}
-                    >
-                      {localStorage.getItem('kukupin-consent')==='1' ? '無効にする' : '有効にする'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* 数据重置 */}
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-3">データ管理</h3>
+              })()}
               <button
-                onClick={() => {
-                  if (confirm('すべてのデータを削除しますか？この操作は取り消せません。')) {
-                    localStorage.clear()
-                    alert('データを削除しました。ページを再読み込みしてください。')
-                    setShowSettings(false)
-                  }
-                }}
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-full transition"
+                onClick={() => { saveUserProfile(profile); setShowSettings(false) }}
+                className="w-full bg-purple-500 text-white font-bold py-2 rounded-full text-sm"
               >
-                すべてのデータを削除
+                プロフィールを保存
               </button>
             </div>
-            
-            <button className="w-full bg-purple-500 text-white font-bold px-4 py-2 rounded-full" onClick={()=>setShowSettings(false)}>閉じる</button>
+
+            <div className="bg-gray-50 rounded-xl p-4">
+              <p className="text-sm text-gray-600 mb-3">スコア・図鑑などをブラウザのローカルストレージに保存します。</p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">データ保存</span>
+                <button
+                  onClick={() => {
+                    const on = localStorage.getItem(STORAGE_KEYS.consent) === '1'
+                    if (on) localStorage.removeItem(STORAGE_KEYS.consent)
+                    else localStorage.setItem(STORAGE_KEYS.consent, '1')
+                    setShowSettings(false)
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-bold text-white ${localStorage.getItem(STORAGE_KEYS.consent) === '1' ? 'bg-red-500' : 'bg-green-500'}`}
+                >
+                  {localStorage.getItem(STORAGE_KEYS.consent) === '1' ? '無効にする' : '有効にする'}
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (confirm('すべてのデータを削除しますか？')) {
+                  localStorage.clear()
+                  loadData()
+                  setShowSettings(false)
+                }
+              }}
+              className="w-full bg-red-500 text-white font-bold py-2 rounded-full"
+            >
+              すべてのデータを削除
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
-      
-      {/* 同意弹窗已由全局ConsentGate处理，这里移除 */}
     </div>
   )
-} 
+}
+
+function StatusRow({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex justify-between items-center mb-2">
+      <span className="text-xs font-bold text-gray-600">{label}</span>
+      <span className={`text-lg font-black ${color}`}>{value}</span>
+    </div>
+  )
+}
+
+function StatRow({ label, value, barValue, barColor }: { label: string; value: string; barValue: number; barColor: string }) {
+  return (
+    <div className="mb-2">
+      <div className="flex justify-between mb-0.5">
+        <span className="text-xs font-bold text-gray-600">{label}</span>
+        <span className="text-sm font-black text-gray-700">{value}</span>
+      </div>
+      <StatBar value={barValue} colorClass={barColor} />
+    </div>
+  )
+}
+
+function PetArea({ mood, lastFed, size }: { mood: PetMood; lastFed: number; size: 'large' | 'small' }) {
+  const dim = size === 'large' ? 400 : 280
+  const anim = mood === 'dead' ? 'shake-animation' : mood === 'sick' || mood === 'fat' ? 'wiggle-animation' : 'bounce-animation'
+  const message = getPetMessageText(mood, lastFed)
+
+  return (
+    <div className="flex-1 bg-white/10 rounded-3xl shadow-inner border-2 border-white/20 relative overflow-hidden">
+      {/* 宠物 + 气泡（气泡在上，尖角指向小熊） */}
+      <div
+        className={`absolute left-1/2 -translate-x-1/2 z-10 flex flex-col items-center ${size === 'small' ? 'bottom-[88px]' : 'bottom-4'}`}
+      >
+        <div className="mb-3">
+          <PixelSpeechBubble text={message} />
+        </div>
+        <div className="cursor-pointer hover:scale-105 active:scale-95 transition-transform">
+          <Image
+            src={PET_IMAGES[mood]}
+            alt="くっくぴん"
+            width={dim}
+            height={dim}
+            className={anim}
+            priority
+            style={{ imageRendering: 'auto' }}
+          />
+        </div>
+      </div>
+
+      <div className={`absolute flex flex-col gap-3 ${size === 'small' ? 'bottom-6 right-4' : 'top-1/2 -translate-y-1/2 right-4 lg:right-8'}`}>
+        <Link href="/meal" title="食事を記録">
+          {size === 'small' ? (
+            <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-white shadow-lg flex items-center justify-center border-2 border-orange-100 transition-transform hover:scale-105 active:scale-95">
+              <UtensilsCrossed className="w-9 h-9 text-orange-500" strokeWidth={2.5} />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 bg-white/95 backdrop-blur-sm rounded-full pl-4 pr-5 py-3 shadow-lg border-2 border-orange-100 transition-transform hover:scale-105 active:scale-95">
+              <UtensilsCrossed className="w-7 h-7 text-orange-500 shrink-0" strokeWidth={2.5} />
+              <span className="font-bold text-orange-600 text-base whitespace-nowrap">食事をあげる</span>
+            </div>
+          )}
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[999] p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-black text-purple-800 mb-4 text-center">{title}</h2>
+        {children}
+        <button className="mt-4 mx-auto block bg-purple-500 text-white font-bold px-6 py-2 rounded-full" onClick={onClose}>閉じる</button>
+      </div>
+    </div>
+  )
+}
