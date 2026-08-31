@@ -38,25 +38,53 @@ export function useTypewriter(text: string, speed = 90, startDelay = 500) {
 interface PixelSpeechBubbleProps {
   text: string
   className?: string
+  size?: 'small' | 'large'
 }
 
-export default function PixelSpeechBubble({ text, className = '' }: PixelSpeechBubbleProps) {
+const BUBBLE_STYLE = {
+  small: {
+    maxWidth: 'max-w-[260px] sm:max-w-[280px]',
+    fontSize: 'clamp(14px, 2.2vw, 18px)',
+    minHeight: '3.2em',
+    padding: '0.65em 1.15em 1.35em',
+    innerPx: '0.4em',
+    textWidth: '86%',
+  },
+  large: {
+    maxWidth: 'max-w-[390px]',
+    fontSize: 'clamp(18px, 2.2vw, 23px)',
+    minHeight: '5.4em',
+    padding: '0.85em 1.5em 1.75em',
+    innerPx: '0.5em',
+    textWidth: '82%',
+  },
+} as const
+
+export default function PixelSpeechBubble({ text, className = '', size = 'small' }: PixelSpeechBubbleProps) {
   const { display, phase } = useTypewriter(text)
   const showCursor = phase !== 'done' || display.length > 0
+  const cfg = BUBBLE_STYLE[size]
+
   return (
     <div
-      className={`relative block pointer-events-none w-full max-w-[260px] sm:max-w-[280px] lg:max-w-[300px] mx-auto box-border ${className}`}
+      className={`relative block pointer-events-none w-full ${cfg.maxWidth} mx-auto box-border ${className}`}
       style={{
-        padding: '0.65em 1em 1.35em',
+        padding: cfg.padding,
         backgroundImage: 'url(/pixel-speech-bubble.png)',
         backgroundSize: '100% 100%',
         backgroundRepeat: 'no-repeat',
         imageRendering: 'pixelated',
-        fontSize: 'clamp(14px, 2.2vw, 18px)',
+        fontSize: cfg.fontSize,
       }}
     >
-      <div className="flex items-center justify-center min-h-[3.2em] px-0.5 w-full overflow-hidden">
-        <p className="font-pixel-bold text-center text-gray-900 leading-snug break-words w-full [overflow-wrap:anywhere]">
+      <div
+        className="flex items-center justify-center w-full overflow-hidden mx-auto"
+        style={{ minHeight: cfg.minHeight, paddingLeft: cfg.innerPx, paddingRight: cfg.innerPx }}
+      >
+        <p
+          className="font-pixel-bold text-center text-gray-900 leading-relaxed break-words [word-break:break-word] [overflow-wrap:break-word]"
+          style={{ width: cfg.textWidth, maxWidth: '100%' }}
+        >
           {display}
           {showCursor && <span className="typing-cursor">▌</span>}
         </p>

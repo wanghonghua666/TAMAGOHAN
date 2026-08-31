@@ -15,15 +15,19 @@ body {
 }
 
 .font-pixel {
-  font-family: 'DotGothic16', sans-serif;
+  font-family: var(--font-dot-gothic), 'DotGothic16', sans-serif;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
 }
 
 .font-pixel-bold {
-  font-family: 'DotGothic16', sans-serif;
-  font-weight: 700;
-  -webkit-text-stroke: 0.35px #1a1a1a;
+  font-family: var(--font-dot-gothic), 'DotGothic16', sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  -webkit-text-stroke: 0.4px #1a1a1a;
   paint-order: stroke fill;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .font-pixel-en {
@@ -147,6 +151,10 @@ body {
 
   .game-panel {
     @apply bg-white/95 rounded-2xl p-4 shadow-xl border-2 border-white/50 backdrop-blur-sm;
+  }
+
+  .game-panel-glass {
+    @apply bg-white/55 border-0 shadow-lg backdrop-blur-md;
   }
 
   .panel-title {

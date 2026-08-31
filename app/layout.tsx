@@ -6,7 +6,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
 import ConsentGate from '@/components/ConsentGate'
 
-const dotGothic = DotGothic16({ weight: '400', subsets: ['latin'], display: 'swap' })
+const dotGothic = DotGothic16({ weight: '400', subsets: ['latin'], display: 'swap', variable: '--font-dot-gothic' })
 
 export const metadata: Metadata = {
   title: 'くっくぴん Kukupin - 食事记录育成游戏',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="ja" className={dotGothic.variable}>
       <body className={dotGothic.className}>
         <AuthProvider>
           <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-100">

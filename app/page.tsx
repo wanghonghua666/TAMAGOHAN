@@ -176,7 +176,7 @@ function HomeContent() {
         <div className="hidden lg:grid lg:grid-cols-12 lg:gap-5 p-5 flex-1 items-stretch">
           {/* 左：状态 */}
           <div className="lg:col-span-3 flex flex-col justify-center">
-            <div className="game-panel lg:p-6">
+            <div className="game-panel game-panel-glass lg:p-6">
               <h3 className="panel-title lg:text-xl lg:mb-5">📊 ステータス</h3>
               <StatusRow label="🌟 レベル" value={`Lv.${level}`} color="text-yellow-600" large />
               <StatRow label="❤️ 健康度" value={`${healthScore}%`} barValue={healthScore} barColor={healthColor} large />
@@ -195,7 +195,7 @@ function HomeContent() {
 
           {/* 右：今日记录 */}
           <div className="lg:col-span-3 flex flex-col justify-center gap-5">
-            <div className="game-panel lg:p-6">
+            <div className="game-panel game-panel-glass lg:p-6">
               <h3 className="panel-title lg:text-xl lg:mb-5">📈 今日の記録</h3>
               <div className="grid grid-cols-1 gap-5 text-center">
                 <div><div className="text-4xl font-black text-green-600">{todayStats.count}</div><div className="text-sm text-gray-500 mt-1">食事回数</div></div>
@@ -377,7 +377,7 @@ function PetArea({ mood, lastFed, size }: { mood: PetMood; lastFed: number; size
         }`}
       >
         <div className="mb-3 w-full flex justify-center">
-          <PixelSpeechBubble text={message} />
+          <PixelSpeechBubble text={message} size={size} />
         </div>
         <div className="cursor-pointer hover:scale-105 active:scale-95 transition-transform">
           <Image
