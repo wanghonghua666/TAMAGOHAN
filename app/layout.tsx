@@ -11,6 +11,10 @@ const dotGothic = DotGothic16({ weight: '400', subsets: ['latin'], display: 'swa
 export const metadata: Metadata = {
   title: 'くっくぴん Kukupin - 食事记录育成游戏',
   description: '通过食事记录培养你的虚拟角色',
+  icons: {
+    icon: [{ url: '/favicon.png', type: 'image/png' }],
+    apple: [{ url: '/favicon.png', type: 'image/png' }],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
