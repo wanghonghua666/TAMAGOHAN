@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { UserProfile } from '@/lib/meal-assessment'
 import { DEFAULT_PROFILE } from '@/lib/meal-assessment'
 
-const GEMINI_MODEL = 'gemini-3.6-flash'
+const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'] as const
 
 export const maxDuration = 60
 
@@ -88,13 +88,13 @@ function extractJson(text: string): GeminiFoodResult | null {
   }
 }
 
-async function callGemini(
+async function callGeminiOnce(
   apiKey: string,
-  imageBase64: string,
+  model: string,
+  mimeType: string,
+  data: string,
   profile: UserProfile,
-): Promise<{ result: GeminiFoodResult | null; error?: string }> {
-  const { mimeType, data } = parseBase64Image(imageBase64)
-
+): Promise<{ result: GeminiFoodResult | null; error?: string; status?: number }> {
   const prompt = `You are the food analyst for 「くっくぴん」, a cute Japanese pet health game.
 Look at the photo carefully — packaged convenience-store meals, bento boxes, restaurant dishes, drinks, and snacks ALL count as edible food.
 
@@ -126,7 +126,7 @@ Rules:
 - If not food at all, set isEdible=false and explain in description + funReview`
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: 'POST',
       headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
@@ -142,20 +142,20 @@ Rules:
   )
 
   if (!res.ok) {
-    console.error('Gemini API error:', res.status)
-    return { result: null, error: `api_${res.status}` }
+    console.error(`Gemini API error (${model}):`, res.status)
+    return { result: null, error: `api_${res.status}`, status: res.status }
   }
 
   const body = await res.json()
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) {
-    console.error('Gemini empty response:', body.candidates?.[0]?.finishReason)
+    console.error(`Gemini empty response (${model}):`, body.candidates?.[0]?.finishReason)
     return { result: null, error: 'empty_response' }
   }
 
   const parsed = extractJson(text)
   if (!parsed) {
-    console.error('Gemini JSON parse failed, length:', text.length)
+    console.error(`Gemini JSON parse failed (${model}), length:`, text.length)
     return { result: null, error: 'parse_failed' }
   }
 
@@ -164,6 +164,22 @@ Rules:
   }
 
   return { result: parsed }
+}
+
+async function callGemini(
+  apiKey: string,
+  imageBase64: string,
+  profile: UserProfile,
+): Promise<{ result: GeminiFoodResult | null; error?: string }> {
+  const { mimeType, data } = parseBase64Image(imageBase64)
+
+  for (const model of GEMINI_MODELS) {
+    const out = await callGeminiOnce(apiKey, model, mimeType, data, profile)
+    if (out.result) return { result: out.result }
+    if (out.status && out.status !== 404) break
+  }
+
+  return { result: null, error: 'all_models_failed' }
 }
 
 function rejectNotFood(message?: string, reason?: 'not_food' | 'api_error', extra?: Partial<GeminiFoodResult>) {
@@ -179,9 +195,26 @@ function rejectNotFood(message?: string, reason?: 'not_food' | 'api_error', extr
 
 export async function POST(request: NextRequest) {
   try {
-    const { imageBase64, userProfile } = await request.json()
+    let body: { imageBase64?: string; userProfile?: Partial<UserProfile> }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'PAYLOAD_INVALID', message: '画像データの読み取りに失敗しました。別の写真をお試しください。' },
+        { status: 413 },
+      )
+    }
+
+    const { imageBase64, userProfile } = body
     if (!imageBase64) {
-      return NextResponse.json({ error: '缺少图片数据' }, { status: 400 })
+      return NextResponse.json({ error: 'MISSING_IMAGE', message: '缺少图片数据' }, { status: 400 })
+    }
+
+    if (imageBase64.length > 6_000_000) {
+      return NextResponse.json(
+        { error: 'PAYLOAD_TOO_LARGE', message: '画像が大きすぎます。もう一度お試しください 📸' },
+        { status: 413 },
+      )
     }
 
     const profile: UserProfile = {
@@ -191,12 +224,18 @@ export async function POST(request: NextRequest) {
       activity: userProfile?.activity ?? DEFAULT_PROFILE.activity,
     }
 
-    const geminiKey = process.env.GEMINI_API_KEY
+    const geminiKey = process.env.GEMINI_API_KEY?.trim()
     if (!geminiKey) {
-      return NextResponse.json({ error: 'Gemini API 未配置' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'CONFIG_MISSING',
+          message: 'サーバーに GEMINI_API_KEY が設定されていません。管理者に連絡してください。',
+        },
+        { status: 503 },
+      )
     }
 
-    const { result: gemini, error } = await callGemini(geminiKey, imageBase64, profile)
+    const { result: gemini } = await callGemini(geminiKey, imageBase64, profile)
     if (!gemini) {
       return rejectNotFood(
         'AI分析サービスに接続できませんでした。しばらくしてからもう一度お試しください 📸',

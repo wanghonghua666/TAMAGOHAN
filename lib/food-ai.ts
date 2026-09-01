@@ -48,7 +48,10 @@ interface ApiResponse {
 }
 
 /** 上传前压缩大图，避免 API 超时或失败 */
-async function fileToCompressedBase64(file: File, maxWidth = 1280, quality = 0.82): Promise<string> {
+async function fileToCompressedBase64(file: File): Promise<string> {
+  const maxWidth = file.size > 800_000 ? 960 : file.size > 400_000 ? 1120 : 1280
+  const quality = file.size > 800_000 ? 0.72 : file.size > 400_000 ? 0.78 : 0.82
+
   if (typeof document === 'undefined') {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -58,20 +61,29 @@ async function fileToCompressedBase64(file: File, maxWidth = 1280, quality = 0.8
     })
   }
 
-  const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, maxWidth / bitmap.width)
-  const w = Math.round(bitmap.width * scale)
-  const h = Math.round(bitmap.height * scale)
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxWidth / bitmap.width)
+    const w = Math.round(bitmap.width * scale)
+    const h = Math.round(bitmap.height * scale)
 
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas 不可用')
-  ctx.drawImage(bitmap, 0, 0, w, h)
-  bitmap.close()
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas 不可用')
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    bitmap.close()
 
-  return canvas.toDataURL('image/jpeg', quality)
+    return canvas.toDataURL('image/jpeg', quality)
+  } catch {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error('图片读取失败'))
+      reader.readAsDataURL(file)
+    })
+  }
 }
 
 async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
@@ -82,17 +94,34 @@ async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64, userProfile: profile }),
     })
-    if (!response.ok) throw new Error(`API ${response.status}`)
-    const result = await response.json()
+
+    let payload: { isEdible?: boolean; ingredients?: string[]; source?: string; message?: string; geminiAnalysis?: ApiResponse['geminiAnalysis']; error?: string } = {}
+    try {
+      payload = await response.json()
+    } catch {
+      payload = {}
+    }
+
+    if (!response.ok) {
+      const msg =
+        payload.message ||
+        (payload.error === 'CONFIG_MISSING'
+          ? 'サーバー設定エラー：APIキー未設定です'
+          : payload.error === 'PAYLOAD_TOO_LARGE'
+            ? '画像が大きすぎます。別の写真をお試しください 📸'
+            : `分析に失敗しました（${response.status}）`)
+      return { isEdible: false, ingredients: [], source: 'error', message: msg, geminiAnalysis: payload.geminiAnalysis }
+    }
+
     return {
-      isEdible: result.isEdible !== false,
-      ingredients: result.ingredients || [],
-      source: result.source || 'unknown',
-      message: result.message,
-      geminiAnalysis: result.geminiAnalysis,
+      isEdible: payload.isEdible !== false,
+      ingredients: payload.ingredients || [],
+      source: payload.source || 'unknown',
+      message: payload.message,
+      geminiAnalysis: payload.geminiAnalysis,
     }
   } catch {
-    return { isEdible: false, ingredients: [], source: 'error', message: '分析に失敗しました' }
+    return { isEdible: false, ingredients: [], source: 'error', message: 'ネットワークエラー。接続を確認してください 📡' }
   }
 }
 
