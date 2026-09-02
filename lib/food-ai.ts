@@ -2,6 +2,8 @@
 
 import { assessMeal, type MealAssessment } from './meal-assessment'
 import { STORAGE_KEYS, getUserProfile } from './storage'
+import { analyzeFoodWithGeminiClient } from './gemini-food-client'
+import type { GeminiFoodResult } from './gemini-food-core'
 
 export interface FoodRecognitionResult {
   isEdible: boolean
@@ -49,9 +51,9 @@ interface ApiResponse {
 
 /** 上传前压缩大图，避免 API 超时或失败 */
 async function fileToCompressedBase64(file: File): Promise<string> {
-  // 线上 API 有超时限制，优先压缩体积以加快 Gemini 响应
-  const maxWidth = file.size > 500_000 ? 640 : file.size > 200_000 ? 768 : 896
-  const quality = file.size > 500_000 ? 0.62 : file.size > 200_000 ? 0.68 : 0.74
+  // 尽量小图，加快 Gemini 响应（免费 Vercel 函数只有 10 秒）
+  const maxWidth = file.size > 300_000 ? 512 : file.size > 150_000 ? 640 : 768
+  const quality = file.size > 300_000 ? 0.58 : file.size > 150_000 ? 0.64 : 0.7
 
   if (typeof document === 'undefined') {
     return new Promise((resolve, reject) => {
@@ -87,7 +89,7 @@ async function fileToCompressedBase64(file: File): Promise<string> {
   }
 }
 
-async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
+async function recognizeFoodViaServer(imageBase64: string): Promise<ApiResponse> {
   const profile = getUserProfile()
   try {
     const response = await fetch('/api/analyze-food', {
@@ -107,9 +109,9 @@ async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
       const msg =
         payload.message ||
         (response.status === 504
-          ? 'サーバーがタイムアウトしました（504）。AI分析に時間がかかりすぎています。Vercel Pro プランが必要な場合があります ⏱️'
+          ? 'サーバーがタイムアウトしました（504）。環境変数 NEXT_PUBLIC_GEMINI_API_KEY を設定して再デプロイしてください ⏱️'
           : payload.error === 'CONFIG_MISSING'
-            ? 'サーバー設定エラー：APIキー未設定です'
+            ? 'APIキー未設定：Vercel に NEXT_PUBLIC_GEMINI_API_KEY を追加してください'
             : payload.error === 'PAYLOAD_TOO_LARGE'
               ? '画像が大きすぎます。別の写真をお試しください 📸'
               : `分析に失敗しました（${response.status}）`)
@@ -126,6 +128,51 @@ async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
   } catch {
     return { isEdible: false, ingredients: [], source: 'error', message: 'ネットワークエラー。接続を確認してください 📡' }
   }
+}
+
+function geminiToApiResponse(gemini: GeminiFoodResult, source: string): ApiResponse {
+  if (!gemini.isEdible) {
+    return {
+      isEdible: false,
+      ingredients: [],
+      source,
+      message: gemini.funReview || gemini.message || gemini.description,
+      geminiAnalysis: {
+        foodName: gemini.foodName,
+        description: gemini.description,
+        funReview: gemini.funReview,
+      },
+    }
+  }
+
+  return {
+    isEdible: true,
+    ingredients: gemini.ingredients,
+    source,
+    message: gemini.funReview || gemini.message,
+    geminiAnalysis: {
+      foodName: gemini.foodName,
+      description: gemini.description,
+      funReview: gemini.funReview,
+      healthScore: gemini.healthScore,
+      message: gemini.funReview || gemini.message,
+      nutrition: gemini.nutrition,
+    },
+  }
+}
+
+async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
+  const profile = getUserProfile()
+  const clientKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY?.trim()
+
+  // 优先浏览器直连 Gemini，不受 Vercel 免费版 10 秒限制
+  if (clientKey) {
+    const { result, model, error } = await analyzeFoodWithGeminiClient(clientKey, imageBase64, profile)
+    if (result) return geminiToApiResponse(result, `gemini-client:${model}`)
+    console.warn('Client Gemini failed, fallback to server:', error)
+  }
+
+  return recognizeFoodViaServer(imageBase64)
 }
 
 function savePetData(ingredients: string[], overallScore: number, nutrition: FoodRecognitionResult['nutritionEstimate']) {

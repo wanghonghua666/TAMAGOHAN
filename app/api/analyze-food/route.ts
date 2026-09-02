@@ -1,104 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { UserProfile } from '@/lib/meal-assessment'
 import { DEFAULT_PROFILE } from '@/lib/meal-assessment'
-
-const GEMINI_MODELS = [
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-flash-latest',
-] as const
+import {
+  GEMINI_MODELS,
+  buildFoodPrompt,
+  extractGeminiJson,
+  parseBase64Image,
+  type GeminiFoodResult,
+} from '@/lib/gemini-food-core'
 
 const MODEL_TIMEOUT_MS: Record<(typeof GEMINI_MODELS)[number], number> = {
-  'gemini-3.5-flash-lite': 18_000,
-  'gemini-3.1-flash-lite': 18_000,
-  'gemini-3.5-flash': 25_000,
-  'gemini-flash-latest': 25_000,
+  'gemini-3.5-flash-lite': 8_000,
+  'gemini-3.1-flash-lite': 8_000,
+  'gemini-3.5-flash': 9_000,
 }
 
-export const maxDuration = 60
-
-interface GeminiFoodResult {
-  isEdible: boolean
-  foodName?: string
-  description?: string
-  funReview?: string
-  ingredients: string[]
-  healthScore?: number
-  message?: string
-  nutrition?: {
-    calories: number
-    carbs: number
-    protein: number
-    fat: number
-    fiber: number
-    vegetableServings?: number
-  }
-  rejectReason?: string
-}
-
-function parseBase64Image(imageBase64: string): { mimeType: string; data: string } {
-  const match = imageBase64.match(/^data:(image\/[\w+.-]+);base64,(.+)$/)
-  if (match) return { mimeType: match[1], data: match[2] }
-  return { mimeType: 'image/jpeg', data: imageBase64.split(',')[1] || imageBase64 }
-}
-
-function num(v: unknown, fallback = 0): number {
-  const n = typeof v === 'number' ? v : parseFloat(String(v))
-  return Number.isFinite(n) ? Math.round(n) : fallback
-}
-
-function extractJson(text: string): GeminiFoodResult | null {
-  const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
-  const start = cleaned.indexOf('{')
-  const end = cleaned.lastIndexOf('}')
-  if (start === -1 || end === -1) return null
-  try {
-    const parsed = JSON.parse(cleaned.slice(start, end + 1))
-
-    if (parsed.isEdible === false) {
-      return {
-        isEdible: false,
-        ingredients: [],
-        foodName: parsed.foodName,
-        description: parsed.description,
-        funReview: parsed.funReview,
-        rejectReason: parsed.rejectReason || 'not_food',
-        message: parsed.funReview || parsed.message || parsed.description,
-      }
-    }
-
-    const foodName = typeof parsed.foodName === 'string' ? parsed.foodName.trim() : ''
-    let ingredients: string[] = Array.isArray(parsed.ingredients)
-      ? parsed.ingredients.map((i: string) => String(i).toLowerCase().trim()).filter(Boolean)
-      : []
-    if (ingredients.length === 0 && foodName) ingredients = [foodName]
-
-    const nutrition = parsed.nutrition
-      ? {
-          calories: num(parsed.nutrition.calories, 400),
-          carbs: num(parsed.nutrition.carbs, 50),
-          protein: num(parsed.nutrition.protein, 15),
-          fat: num(parsed.nutrition.fat, 12),
-          fiber: num(parsed.nutrition.fiber, 3),
-          vegetableServings: num(parsed.nutrition.vegetableServings, 0),
-        }
-      : undefined
-
-    return {
-      isEdible: true,
-      foodName,
-      description: typeof parsed.description === 'string' ? parsed.description : undefined,
-      funReview: typeof parsed.funReview === 'string' ? parsed.funReview : undefined,
-      ingredients,
-      healthScore: typeof parsed.healthScore === 'number' ? parsed.healthScore : 50,
-      message: parsed.funReview || parsed.message,
-      nutrition,
-    }
-  } catch {
-    return null
-  }
-}
+export const maxDuration = 10
 
 async function callGeminiOnce(
   apiKey: string,
@@ -108,11 +25,7 @@ async function callGeminiOnce(
   profile: UserProfile,
   timeoutMs: number,
 ): Promise<{ result: GeminiFoodResult | null; error?: string; status?: number }> {
-  const prompt = `Food analyst for Japanese pet game 「くっくぴん」. User: ${profile.weightKg}kg, goal=${profile.goal}.
-Packaged meals, bento, drinks, snacks = edible. Return ONLY JSON:
-{"isEdible":bool,"foodName":"Japanese name","description":"1-2 short Japanese sentences","funReview":"1-2 playful Japanese sentences as pet くっくぴん with emoji","ingredients":["english lowercase"],"healthScore":0-100,"nutrition":{"calories":n,"carbs":n,"protein":n,"fat":n,"fiber":n,"vegetableServings":n},"rejectReason":"only if not food"}
-Estimate one visible portion. healthScore=food quality only.`
-
+  const prompt = buildFoodPrompt(profile)
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -143,22 +56,15 @@ Estimate one visible portion. healthScore=food quality only.`
   }
 
   if (!res.ok) {
-    console.error(`Gemini API error (${model}):`, res.status)
     return { result: null, error: `api_${res.status}`, status: res.status }
   }
 
   const body = await res.json()
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) {
-    console.error(`Gemini empty response (${model}):`, body.candidates?.[0]?.finishReason)
-    return { result: null, error: 'empty_response' }
-  }
+  if (!text) return { result: null, error: 'empty_response' }
 
-  const parsed = extractJson(text)
-  if (!parsed) {
-    console.error(`Gemini JSON parse failed (${model}), length:`, text.length)
-    return { result: null, error: 'parse_failed' }
-  }
+  const parsed = extractGeminiJson(text)
+  if (!parsed) return { result: null, error: 'parse_failed' }
 
   if (parsed.isEdible && parsed.ingredients.length === 0) {
     parsed.ingredients = parsed.foodName ? [parsed.foodName] : ['meal']
@@ -179,7 +85,6 @@ async function callGemini(
     const out = await callGeminiOnce(apiKey, model, mimeType, data, profile, MODEL_TIMEOUT_MS[model])
     if (out.result) return { result: out.result }
     lastError = out.error
-    console.warn(`Gemini model ${model} failed:`, out.error || out.status)
   }
 
   return { result: null, error: lastError || 'api_failed' }
@@ -232,7 +137,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'CONFIG_MISSING',
-          message: 'サーバーに GEMINI_API_KEY が設定されていません。管理者に連絡してください。',
+          message: 'サーバーに GEMINI_API_KEY が設定されていません。NEXT_PUBLIC_GEMINI_API_KEY を設定してください。',
         },
         { status: 503 },
       )
@@ -240,24 +145,19 @@ export async function POST(request: NextRequest) {
 
     const { result: gemini, error: geminiError } = await callGemini(geminiKey, imageBase64, profile)
     if (!gemini) {
-      const timeoutMsg =
-        'AI分析がタイムアウトしました（30秒以上）。画像を小さくするか、しばらくして再試行してください ⏱️'
       const failMsg =
         geminiError === 'timeout'
-          ? timeoutMsg
+          ? 'AI分析がタイムアウトしました。ブラウザから直接分析する設定（NEXT_PUBLIC_GEMINI_API_KEY）を確認してください ⏱️'
           : 'AI分析サービスに接続できませんでした。しばらくしてからもう一度お試しください 📸'
       return rejectNotFood(failMsg, 'api_error')
     }
+
     if (!gemini.isEdible) {
-      return rejectNotFood(
-        gemini.funReview || gemini.message || gemini.description,
-        'not_food',
-        {
-          foodName: gemini.foodName,
-          description: gemini.description,
-          funReview: gemini.funReview,
-        },
-      )
+      return rejectNotFood(gemini.funReview || gemini.message || gemini.description, 'not_food', {
+        foodName: gemini.foodName,
+        description: gemini.description,
+        funReview: gemini.funReview,
+      })
     }
 
     return NextResponse.json({

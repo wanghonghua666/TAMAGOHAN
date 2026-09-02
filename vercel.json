@@ -1,7 +1,7 @@
 {
   "functions": {
     "app/api/analyze-food/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 10
     }
   }
 }
