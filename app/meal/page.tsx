@@ -29,19 +29,19 @@ export default function MealPage() {
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<any>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounterRef = useRef(0)
   const router = useRouter()
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('文件选择事件触发')
-    const file = event.target.files?.[0]
-    console.log('选择的文件:', file)
-    
-    if (file && file.type.startsWith('image/')) {
+  const processImageFile = (file: File) => {
+    const isImage =
+      file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name)
+
+    if (isImage) {
       console.log('有效图片文件:', file.name, file.size, file.type)
       setSelectedFile(file)
-      
-      // プレビュー画像の作成
+
       const reader = new FileReader()
       reader.onload = (e) => {
         console.log('图片预览创建完成')
@@ -55,6 +55,47 @@ export default function MealPage() {
       console.log('无效文件或非图片文件')
       alert('画像ファイルを選択してください。')
     }
+  }
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('文件选择事件触发')
+    const file = event.target.files?.[0]
+    console.log('选择的文件:', file)
+    if (file) processImageFile(file)
+    event.target.value = ''
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    dragCounterRef.current += 1
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    dragCounterRef.current -= 1
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0
+      setIsDragging(false)
+    }
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    dragCounterRef.current = 0
+    setIsDragging(false)
+
+    const file = event.dataTransfer.files?.[0]
+    console.log('拖拽文件:', file)
+    if (file) processImageFile(file)
   }
 
   const triggerFileInput = () => {
@@ -187,9 +228,16 @@ export default function MealPage() {
         /* ファイルアップロード */
         <div className="space-y-6">
           <div 
-            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-primary-400 transition-colors cursor-pointer touch-manipulation"
+            className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors cursor-pointer touch-manipulation ${
+              isDragging
+                ? 'border-primary-500 bg-primary-50 scale-[1.01]'
+                : 'border-gray-300 hover:border-primary-400'
+            }`}
             onClick={triggerFileInput}
-
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
           >
             <input
               ref={fileInputRef}
@@ -209,7 +257,11 @@ export default function MealPage() {
                   食事の写真をアップロード
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  {isMobile ? 'タップしてカメラで撮影、または下のボタンから選択してください' : 'クリックしてファイルを選択するか、ドラッグ&ドロップしてください'}
+                  {isMobile
+                    ? 'タップしてカメラで撮影、または下のボタンから選択してください'
+                    : isDragging
+                      ? 'ここにドロップしてください 📥'
+                      : 'クリックしてファイルを選択するか、ドラッグ&ドロップしてください'}
                 </p>
                 <p className="text-sm text-gray-500">
                   JPG, PNG形式に対応
@@ -233,9 +285,7 @@ export default function MealPage() {
                     cameraInput.capture = 'environment'
                     cameraInput.onchange = (e) => {
                       const target = e.target as HTMLInputElement
-                      if (target.files && target.files[0]) {
-                        handleFileSelect({ target } as React.ChangeEvent<HTMLInputElement>)
-                      }
+                      if (target.files?.[0]) processImageFile(target.files[0])
                     }
                     cameraInput.click()
                   }}
@@ -245,7 +295,7 @@ export default function MealPage() {
                   カメラで撮影
                 </button>
                 <button
-                  onClick={triggerFileInput}
+                  onClick={(e) => { e.stopPropagation(); triggerFileInput() }}
                   className="btn-secondary inline-flex items-center touch-manipulation"
                 >
                   <Upload size={16} className="mr-2" />
@@ -261,7 +311,7 @@ export default function MealPage() {
                 または
               </p>
               <button
-                onClick={triggerFileInput}
+                onClick={(e) => { e.stopPropagation(); triggerFileInput() }}
                 className="mt-2 btn-secondary inline-flex items-center touch-manipulation"
               >
                 <Upload size={16} className="mr-2" />

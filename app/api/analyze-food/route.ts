@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { UserProfile } from '@/lib/meal-assessment'
 import { DEFAULT_PROFILE } from '@/lib/meal-assessment'
 
-const GEMINI_MODEL = 'gemini-3.5-flash-lite'
-const GEMINI_FALLBACK_MODEL = 'gemini-3.5-flash'
-const GEMINI_TIMEOUT_MS = 55_000
+const GEMINI_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
+] as const
+
+const MODEL_TIMEOUT_MS: Record<(typeof GEMINI_MODELS)[number], number> = {
+  'gemini-3.5-flash-lite': 18_000,
+  'gemini-3.1-flash-lite': 18_000,
+  'gemini-3.5-flash': 25_000,
+  'gemini-flash-latest': 25_000,
+}
 
 export const maxDuration = 60
 
@@ -96,6 +106,7 @@ async function callGeminiOnce(
   mimeType: string,
   data: string,
   profile: UserProfile,
+  timeoutMs: number,
 ): Promise<{ result: GeminiFoodResult | null; error?: string; status?: number }> {
   const prompt = `Food analyst for Japanese pet game 「くっくぴん」. User: ${profile.weightKg}kg, goal=${profile.goal}.
 Packaged meals, bento, drinks, snacks = edible. Return ONLY JSON:
@@ -103,7 +114,7 @@ Packaged meals, bento, drinks, snacks = edible. Return ONLY JSON:
 Estimate one visible portion. healthScore=food quality only.`
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let res: Response
   try {
@@ -162,15 +173,16 @@ async function callGemini(
   profile: UserProfile,
 ): Promise<{ result: GeminiFoodResult | null; error?: string }> {
   const { mimeType, data } = parseBase64Image(imageBase64)
+  let lastError: string | undefined
 
-  for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
-    const out = await callGeminiOnce(apiKey, model, mimeType, data, profile)
+  for (const model of GEMINI_MODELS) {
+    const out = await callGeminiOnce(apiKey, model, mimeType, data, profile, MODEL_TIMEOUT_MS[model])
     if (out.result) return { result: out.result }
-    if (out.error === 'timeout') return { result: null, error: 'timeout' }
-    if (out.status && out.status !== 404) break
+    lastError = out.error
+    console.warn(`Gemini model ${model} failed:`, out.error || out.status)
   }
 
-  return { result: null, error: 'api_failed' }
+  return { result: null, error: lastError || 'api_failed' }
 }
 
 function rejectNotFood(message?: string, reason?: 'not_food' | 'api_error', extra?: Partial<GeminiFoodResult>) {
