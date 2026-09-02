@@ -1,3 +1,6 @@
+import type { FatQualityResult, FatBreakdown, FatSource } from './fat-quality'
+import { assessFatQuality, fatMacroStatus } from './fat-quality'
+
 export type UserGoal = 'maintain' | 'lose' | 'gain'
 export type ActivityLevel = 'low' | 'moderate' | 'high'
 
@@ -32,13 +35,16 @@ export interface MacroStatus {
   unit: string
   percent: number
   status: 'low' | 'ok' | 'high'
+  note?: string
 }
 
 export interface MealAssessment {
   overallScore: number
   healthScore: number
   portionScore: number
+  fatQualityScore: number
   macros: MacroStatus[]
+  fatQuality: FatQualityResult
   message: string
   tips: string[]
   dailyTargets: DailyTargets
@@ -99,50 +105,80 @@ function scoreFromMacro(status: MacroStatus['status'], weight: number): number {
   return 60 * weight // high is slightly penalized but not as bad as low for protein/veg
 }
 
-/** 综合评估一餐：健康度 + 份量是否达标 */
+/** 综合评估一餐：健康度 + 份量 + 脂肪质量 */
 export function assessMeal(
   meal: MealNutrition,
   profile: UserProfile,
   healthScore: number,
+  fatInput?: {
+    breakdown?: Partial<FatBreakdown>
+    sources?: FatSource[]
+    ingredients?: string[]
+    foodName?: string
+  },
 ): MealAssessment {
   const dailyTargets = computeDailyTargets(profile)
   const mealTargets = perMeal(dailyTargets)
-
   const vegServings = meal.vegetableServings ?? estimateVegFromFiber(meal.fiber)
+
+  const fatQuality = assessFatQuality(
+    meal.fat,
+    fatInput?.breakdown,
+    fatInput?.sources,
+    fatInput?.ingredients ?? [],
+    fatInput?.foodName,
+  )
+
+  const fatStatus = fatMacroStatus(meal.fat, mealTargets.fat, fatQuality)
+  const fatPercent = mealTargets.fat > 0 ? Math.round((meal.fat / mealTargets.fat) * 100) : 0
 
   const macros: MacroStatus[] = [
     macroStatus('タンパク質', meal.protein, mealTargets.protein, 'g'),
     macroStatus('炭水化物', meal.carbs, mealTargets.carbs, 'g'),
+    {
+      label: '脂質',
+      actual: meal.fat,
+      target: mealTargets.fat,
+      unit: 'g',
+      percent: fatPercent,
+      status: fatStatus.status,
+      note: fatStatus.note,
+    },
     macroStatus('野菜', vegServings, mealTargets.vegetables, '份'),
     macroStatus('カロリー', meal.calories, mealTargets.calories, 'kcal'),
   ]
 
-  // 份量得分：蛋白质25% + 碳水20% + 蔬菜30% + 卡路里25%
+  // 份量得分：蛋白20% + 碳水15% + 脂肪20% + 蔬菜25% + 卡路里20%
   let portionScore = 0
-  portionScore += scoreFromMacro(macros[0].status, 0.25)
-  portionScore += scoreFromMacro(macros[1].status, 0.20)
-  portionScore += scoreFromMacro(macros[2].status, 0.30)
+  portionScore += scoreFromMacro(macros[0].status, 0.20)
+  portionScore += scoreFromMacro(macros[1].status, 0.15)
+  portionScore += scoreFromMacro(macros[2].status, 0.20)
   portionScore += scoreFromMacro(macros[3].status, 0.25)
+  portionScore += scoreFromMacro(macros[4].status, 0.20)
   portionScore = Math.round(portionScore)
 
-  // 综合分：健康质量 40% + 份量达标 60%
-  const overallScore = Math.round(healthScore * 0.4 + portionScore * 0.6)
+  // 综合分：健康 30% + 份量 50% + 脂肪质量 20%
+  const overallScore = Math.round(
+    healthScore * 0.3 + portionScore * 0.5 + fatQuality.qualityScore * 0.2,
+  )
 
-  const tips: string[] = []
+  const tips: string[] = [...fatQuality.tips]
   if (macros[0].status === 'low') tips.push(`タンパク質が足りません（目標 ${mealTargets.protein}g）`)
   if (macros[0].status === 'high') tips.push('タンパク質が多めです')
   if (macros[1].status === 'low') tips.push('炭水化物が少なめです')
   if (macros[1].status === 'high') tips.push(`炭水化物が多めです（目標 ${mealTargets.carbs}g）`)
-  if (macros[2].status === 'low') tips.push(`野菜が足りません！あと ${Math.max(0, Math.round((mealTargets.vegetables - vegServings) * 10) / 10)} 份`)
-  if (macros[2].status === 'ok') tips.push('野菜バランス良好 🥬')
-  if (macros[3].status === 'low') tips.push('食べる量が少なめかも？')
-  if (macros[3].status === 'high') tips.push('カロリーが多めです')
+  if (macros[2].status === 'high' && fatQuality.grade === 'poor') tips.push('揚げ物の脂質が多すぎるかも 🍟')
+  if (macros[2].status === 'ok' && fatQuality.grade === 'excellent') tips.push('良質な脂質バランス 🐟')
+  if (macros[3].status === 'low') tips.push(`野菜が足りません！あと ${Math.max(0, Math.round((mealTargets.vegetables - vegServings) * 10) / 10)} 份`)
+  if (macros[3].status === 'ok') tips.push('野菜バランス良好 🥬')
+  if (macros[4].status === 'low') tips.push('食べる量が少なめかも？')
+  if (macros[4].status === 'high') tips.push('カロリーが多めです')
 
   let message = ''
   if (overallScore >= 85) message = 'バランス抜群！くっくぴんも大喜び 🌟'
   else if (overallScore >= 70) message = 'いい感じ！あと少し野菜を足すと完璧 💪'
   else if (overallScore >= 50) message = 'まあまあ。栄養バランスを見直してみて 😅'
-  else if (healthScore < 30) message = 'ジャンクフード注意！体に悪いよ 🚨'
+  else if (healthScore < 30 || fatQuality.grade === 'poor') message = 'ジャンク・悪質脂肪注意！体に悪いよ 🚨'
   else message = '栄養が偏っています。タンパク質と野菜を増やそう 🥗'
 
   if (tips.length > 0 && overallScore < 70) {
@@ -153,9 +189,11 @@ export function assessMeal(
     overallScore,
     healthScore,
     portionScore,
+    fatQualityScore: fatQuality.qualityScore,
     macros,
+    fatQuality,
     message,
-    tips,
+    tips: tips.slice(0, 4),
     dailyTargets,
     perMealTargets: mealTargets,
   }

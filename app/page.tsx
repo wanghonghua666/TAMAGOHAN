@@ -68,12 +68,13 @@ function HomeContent() {
   const [lastFed, setLastFed] = useState(0)
   const [proteinValue, setProteinValue] = useState(0)
   const [fatValue, setFatValue] = useState(0)
+  const [goodFatValue, setGoodFatValue] = useState(0)
   const [indianMode, setIndianMode] = useState(false)
   const [level, setLevel] = useState(1)
   const [todayStats, setTodayStats] = useState({ count: 0, totalCalories: 0, healthScore: 75 })
   const [profile, setProfile] = useState<UserProfileData>({ weightKg: 60, heightCm: 170, goal: 'maintain', activity: 'moderate' })
 
-  const petMood = computePetMood(healthScore, lastMealScore, proteinValue, fatValue, indianMode)
+  const petMood = computePetMood(healthScore, lastMealScore, proteinValue, fatValue, indianMode, goodFatValue)
   const happiness = computeHappiness(healthScore, lastMealScore)
   const hunger = computeHunger(lastFed)
 
@@ -94,6 +95,7 @@ function HomeContent() {
 
     setProteinValue(parseInt(localStorage.getItem(STORAGE_KEYS.protein) || '0'))
     setFatValue(parseInt(localStorage.getItem(STORAGE_KEYS.fat) || '0'))
+    setGoodFatValue(parseInt(localStorage.getItem(STORAGE_KEYS.goodFat) || '0'))
     setIndianMode(!!localStorage.getItem(STORAGE_KEYS.indianMode))
 
     const bg = localStorage.getItem(STORAGE_KEYS.background)
@@ -183,7 +185,8 @@ function HomeContent() {
               <StatRow label="😊 幸福度" value={`${happiness}%`} barValue={happiness} barColor="bg-gradient-to-r from-green-400 to-emerald-500" large />
               <StatRow label="🍽️ 空腹度" value={`${hunger}%`} barValue={hunger} barColor="bg-gradient-to-r from-orange-400 to-red-400" large />
               <StatRow label="💪 タンパク質" value={String(proteinValue)} barValue={Math.min(100, proteinValue / 2)} barColor="bg-gradient-to-r from-purple-400 to-purple-600" large />
-              <StatRow label="🍩 脂肪" value={String(fatValue)} barValue={Math.min(100, fatValue / 2)} barColor="bg-gradient-to-r from-pink-400 to-red-500" large />
+              <StatRow label="🐟 良質脂肪" value={String(goodFatValue)} barValue={Math.min(100, goodFatValue)} barColor="bg-gradient-to-r from-teal-400 to-emerald-500" large />
+              <StatRow label="🍟 悪質脂肪" value={String(fatValue)} barValue={Math.min(100, fatValue)} barColor="bg-gradient-to-r from-pink-400 to-red-500" large />
               <p className="text-sm text-gray-500 text-center mt-3">最後の食事: {lastFed}時間前</p>
             </div>
           </div>

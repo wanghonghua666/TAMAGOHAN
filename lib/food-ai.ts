@@ -4,6 +4,8 @@ import { assessMeal, type MealAssessment } from './meal-assessment'
 import { STORAGE_KEYS, getUserProfile } from './storage'
 import { analyzeFoodWithGeminiClient } from './gemini-food-client'
 import type { GeminiFoodResult } from './gemini-food-core'
+import { mergePetFatValues } from './fat-quality'
+import type { FatQualityResult } from './fat-quality'
 
 export interface FoodRecognitionResult {
   isEdible: boolean
@@ -25,6 +27,7 @@ export interface FoodRecognitionResult {
   message: string
   source?: string
   assessment?: MealAssessment
+  fatQuality?: FatQualityResult
 }
 
 interface ApiResponse {
@@ -46,6 +49,8 @@ interface ApiResponse {
       fiber: number
       vegetableServings?: number
     }
+    fatBreakdown?: GeminiFoodResult['fatBreakdown']
+    fatSources?: GeminiFoodResult['fatSources']
   }
 }
 
@@ -157,6 +162,8 @@ function geminiToApiResponse(gemini: GeminiFoodResult, source: string): ApiRespo
       healthScore: gemini.healthScore,
       message: gemini.funReview || gemini.message,
       nutrition: gemini.nutrition,
+      fatBreakdown: gemini.fatBreakdown,
+      fatSources: gemini.fatSources,
     },
   }
 }
@@ -175,7 +182,12 @@ async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
   return recognizeFoodViaServer(imageBase64)
 }
 
-function savePetData(ingredients: string[], overallScore: number, nutrition: FoodRecognitionResult['nutritionEstimate']) {
+function savePetData(
+  ingredients: string[],
+  overallScore: number,
+  nutrition: FoodRecognitionResult['nutritionEstimate'],
+  fatQuality: FatQualityResult,
+) {
   if (typeof window === 'undefined') return
   if (localStorage.getItem(STORAGE_KEYS.consent) !== '1') return
 
@@ -187,9 +199,13 @@ function savePetData(ingredients: string[], overallScore: number, nutrition: Foo
   localStorage.setItem(STORAGE_KEYS.healthScore, newScore.toString())
 
   const protein = parseInt(localStorage.getItem(STORAGE_KEYS.protein) || '0') + nutrition.protein
-  const fat = parseInt(localStorage.getItem(STORAGE_KEYS.fat) || '0') + nutrition.fat
   localStorage.setItem(STORAGE_KEYS.protein, protein.toString())
-  localStorage.setItem(STORAGE_KEYS.fat, fat.toString())
+
+  const currentHarmful = parseInt(localStorage.getItem(STORAGE_KEYS.fat) || '0')
+  const currentHealthy = parseInt(localStorage.getItem(STORAGE_KEYS.goodFat) || '0')
+  const merged = mergePetFatValues(currentHarmful, currentHealthy, fatQuality)
+  localStorage.setItem(STORAGE_KEYS.fat, merged.harmful.toString())
+  localStorage.setItem(STORAGE_KEYS.goodFat, merged.healthy.toString())
 
   const isCurry = ingredients.some(i => i.includes('curry') || i.includes('カレー'))
   if (isCurry) localStorage.setItem(STORAGE_KEYS.indianMode, 'true')
@@ -241,9 +257,15 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
     },
     profile,
     healthScore,
+    {
+      breakdown: g?.fatBreakdown,
+      sources: g?.fatSources,
+      ingredients,
+      foodName: g?.foodName,
+    },
   )
 
-  savePetData(ingredients, assessment.overallScore, nutrition)
+  savePetData(ingredients, assessment.overallScore, nutrition, assessment.fatQuality)
 
   const funReview = g?.funReview || g?.message || assessment.message
 
@@ -260,5 +282,6 @@ export async function analyzeFoodImage(file: File): Promise<FoodRecognitionResul
     message: funReview,
     source,
     assessment,
+    fatQuality: assessment.fatQuality,
   }
 }

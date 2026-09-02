@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Camera, Upload, Sparkles, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import MacroAssessment from '@/components/MacroAssessment'
+import FatQualityCard from '@/components/FatQualityCard'
 
 export default function MealPage() {
   // 禁用登录检查，使用游客模式
@@ -128,6 +129,9 @@ export default function MealPage() {
         score: result.overallScore,
         healthScore: result.healthyScore,
         portionScore: result.assessment?.portionScore ?? 0,
+        fatQualityScore: result.assessment?.fatQualityScore ?? 0,
+        fatQuality: result.fatQuality,
+        perMealFatTarget: result.assessment?.perMealTargets.fat ?? 0,
         message: result.message,
         foodName: result.foodName,
         description: result.description,
@@ -420,7 +424,7 @@ export default function MealPage() {
                   </div>
                   <div className="text-lg text-gray-600 mb-1">総合スコア</div>
                   <div className="text-xs text-gray-400 mb-2">
-                    食品質 {analysisResult.healthScore}点 · 份量 {analysisResult.portionScore}点
+                    食品質 {analysisResult.healthScore}点 · 份量 {analysisResult.portionScore}点 · 脂質 {analysisResult.fatQualityScore}点
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4">
                     <div 
@@ -445,6 +449,13 @@ export default function MealPage() {
                 <MacroAssessment
                   macros={analysisResult.macros}
                   portionScore={analysisResult.portionScore}
+                />
+              )}
+
+              {analysisResult.fatQuality && (
+                <FatQualityCard
+                  fatQuality={analysisResult.fatQuality}
+                  targetFat={analysisResult.perMealFatTarget || 20}
                 />
               )}
 

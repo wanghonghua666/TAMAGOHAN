@@ -172,6 +172,8 @@ export async function POST(request: NextRequest) {
         healthScore: gemini.healthScore,
         message: gemini.funReview || gemini.message,
         nutrition: gemini.nutrition,
+        fatBreakdown: gemini.fatBreakdown,
+        fatSources: gemini.fatSources,
       },
     })
   } catch (error: unknown) {

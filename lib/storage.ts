@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   lastFed: 'last-fed-time',
   protein: 'protein-value',
   fat: 'fat-value',
+  goodFat: 'good-fat-value',
   indianMode: 'indian-mode',
   mealHistory: 'meal-history',
   background: 'selected-background',
@@ -94,11 +95,14 @@ export function computePetMood(
   lastMealScore: number | null,
   proteinValue: number,
   fatValue: number,
-  indianMode: boolean
+  indianMode: boolean,
+  goodFatValue = 0,
 ): PetMood {
   if (indianMode) return 'indian'
   if (lastMealScore !== null && lastMealScore < 20) return 'sick'
-  if (fatValue >= 75) return 'fat'
+  // fatValue = 悪質脂肪负荷；goodFatValue 高时可抵消
+  const adjustedFat = Math.max(0, fatValue - Math.round(goodFatValue * 0.4))
+  if (adjustedFat >= 75) return 'fat'
   if (healthScore < 30) return 'dead'
   if (proteinValue >= 75) return 'strong'
   return 'happy'

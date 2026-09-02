@@ -1,4 +1,5 @@
 import type { UserProfile } from './meal-assessment'
+import type { FatBreakdown, FatCategory, FatSource } from './fat-quality'
 
 export const GEMINI_MODELS = [
   'gemini-3.5-flash-lite',
@@ -23,6 +24,8 @@ export interface GeminiFoodResult {
     vegetableServings?: number
   }
   rejectReason?: string
+  fatBreakdown?: FatBreakdown
+  fatSources?: FatSource[]
 }
 
 export function parseBase64Image(imageBase64: string): { mimeType: string; data: string } {
@@ -39,7 +42,8 @@ function num(v: unknown, fallback = 0): number {
 export function buildFoodPrompt(profile: UserProfile): string {
   return `Food analyst for Japanese pet game 「くっくぴん」. User: ${profile.weightKg}kg, goal=${profile.goal}.
 Packaged meals, bento, drinks, snacks = edible. Return ONLY JSON:
-{"isEdible":bool,"foodName":"Japanese name","description":"1-2 short Japanese sentences","funReview":"1-2 playful Japanese sentences as pet くっくぴん with emoji","ingredients":["english lowercase"],"healthScore":0-100,"nutrition":{"calories":n,"carbs":n,"protein":n,"fat":n,"fiber":n,"vegetableServings":n},"rejectReason":"only if not food"}
+{"isEdible":bool,"foodName":"Japanese name","description":"1-2 short Japanese sentences","funReview":"1-2 playful Japanese sentences as pet くっくぴん with emoji","ingredients":["english lowercase"],"healthScore":0-100,"nutrition":{"calories":n,"carbs":n,"protein":n,"fat":n,"fiber":n,"vegetableServings":n},"fatBreakdown":{"total":n,"healthy":n,"neutral":n,"harmful":n},"fatSources":[{"name":"source name","category":"healthy|neutral|harmful","grams":n}],"rejectReason":"only if not food"}
+Fat rules: fish/salmon/tuna/avocado/nuts/olive oil = healthy; fried/tempura/deep-fried/processed/trans = harmful; egg/dairy/lean meat = neutral. healthy+neutral+harmful ≈ nutrition.fat grams.
 Estimate one visible portion. healthScore=food quality only.`
 }
 
@@ -80,6 +84,27 @@ export function extractGeminiJson(text: string): GeminiFoodResult | null {
         }
       : undefined
 
+    const fatBreakdown = parsed.fatBreakdown
+      ? {
+          total: num(parsed.fatBreakdown.total, nutrition?.fat ?? 0),
+          healthy: num(parsed.fatBreakdown.healthy, 0),
+          neutral: num(parsed.fatBreakdown.neutral, 0),
+          harmful: num(parsed.fatBreakdown.harmful, 0),
+        }
+      : undefined
+
+    const fatSources: FatSource[] | undefined = Array.isArray(parsed.fatSources)
+      ? parsed.fatSources
+          .map((s: { name?: string; category?: string; grams?: number }) => ({
+            name: String(s.name || '').trim(),
+            category: (['healthy', 'neutral', 'harmful'].includes(s.category || '')
+              ? s.category
+              : 'neutral') as FatCategory,
+            grams: s.grams != null ? num(s.grams, 0) : undefined,
+          }))
+          .filter((s: FatSource) => s.name)
+      : undefined
+
     return {
       isEdible: true,
       foodName,
@@ -89,6 +114,8 @@ export function extractGeminiJson(text: string): GeminiFoodResult | null {
       healthScore: typeof parsed.healthScore === 'number' ? parsed.healthScore : 50,
       message: parsed.funReview || parsed.message,
       nutrition,
+      fatBreakdown,
+      fatSources,
     }
   } catch {
     return null

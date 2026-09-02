@@ -29,12 +29,12 @@ export default function MacroAssessment({ macros, portionScore }: {
           <div key={m.label}>
             <div className="flex justify-between text-sm mb-1">
               <span className="font-medium text-gray-700">{m.label}</span>
-              <span className="text-gray-600">
+                <span className="text-gray-600">
                 {m.actual}{m.unit} / {m.target}{m.unit}
                 <span className={`ml-2 text-xs font-bold ${
                   m.status === 'ok' ? 'text-green-600' : m.status === 'low' ? 'text-orange-500' : 'text-red-500'
                 }`}>
-                  {STATUS_LABEL[m.status]}
+                  {STATUS_LABEL[m.status]}{m.note ? ` · ${m.note}` : ''}
                 </span>
               </span>
             </div>
