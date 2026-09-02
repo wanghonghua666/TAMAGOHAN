@@ -49,8 +49,9 @@ interface ApiResponse {
 
 /** 上传前压缩大图，避免 API 超时或失败 */
 async function fileToCompressedBase64(file: File): Promise<string> {
-  const maxWidth = file.size > 800_000 ? 960 : file.size > 400_000 ? 1120 : 1280
-  const quality = file.size > 800_000 ? 0.72 : file.size > 400_000 ? 0.78 : 0.82
+  // 线上 API 有超时限制，优先压缩体积以加快 Gemini 响应
+  const maxWidth = file.size > 500_000 ? 640 : file.size > 200_000 ? 768 : 896
+  const quality = file.size > 500_000 ? 0.62 : file.size > 200_000 ? 0.68 : 0.74
 
   if (typeof document === 'undefined') {
     return new Promise((resolve, reject) => {
@@ -105,11 +106,13 @@ async function recognizeFood(imageBase64: string): Promise<ApiResponse> {
     if (!response.ok) {
       const msg =
         payload.message ||
-        (payload.error === 'CONFIG_MISSING'
-          ? 'サーバー設定エラー：APIキー未設定です'
-          : payload.error === 'PAYLOAD_TOO_LARGE'
-            ? '画像が大きすぎます。別の写真をお試しください 📸'
-            : `分析に失敗しました（${response.status}）`)
+        (response.status === 504
+          ? 'サーバーがタイムアウトしました（504）。AI分析に時間がかかりすぎています。Vercel Pro プランが必要な場合があります ⏱️'
+          : payload.error === 'CONFIG_MISSING'
+            ? 'サーバー設定エラー：APIキー未設定です'
+            : payload.error === 'PAYLOAD_TOO_LARGE'
+              ? '画像が大きすぎます。別の写真をお試しください 📸'
+              : `分析に失敗しました（${response.status}）`)
       return { isEdible: false, ingredients: [], source: 'error', message: msg, geminiAnalysis: payload.geminiAnalysis }
     }
 

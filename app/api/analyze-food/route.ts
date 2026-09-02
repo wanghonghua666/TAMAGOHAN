@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { UserProfile } from '@/lib/meal-assessment'
 import { DEFAULT_PROFILE } from '@/lib/meal-assessment'
 
-const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite'] as const
+const GEMINI_MODEL = 'gemini-3.5-flash-lite'
+const GEMINI_FALLBACK_MODEL = 'gemini-3.5-flash'
+const GEMINI_TIMEOUT_MS = 55_000
 
 export const maxDuration = 60
 
@@ -95,51 +97,39 @@ async function callGeminiOnce(
   data: string,
   profile: UserProfile,
 ): Promise<{ result: GeminiFoodResult | null; error?: string; status?: number }> {
-  const prompt = `You are the food analyst for 「くっくぴん」, a cute Japanese pet health game.
-Look at the photo carefully — packaged convenience-store meals, bento boxes, restaurant dishes, drinks, and snacks ALL count as edible food.
+  const prompt = `Food analyst for Japanese pet game 「くっくぴん」. User: ${profile.weightKg}kg, goal=${profile.goal}.
+Packaged meals, bento, drinks, snacks = edible. Return ONLY JSON:
+{"isEdible":bool,"foodName":"Japanese name","description":"1-2 short Japanese sentences","funReview":"1-2 playful Japanese sentences as pet くっくぴん with emoji","ingredients":["english lowercase"],"healthScore":0-100,"nutrition":{"calories":n,"carbs":n,"protein":n,"fat":n,"fiber":n,"vegetableServings":n},"rejectReason":"only if not food"}
+Estimate one visible portion. healthScore=food quality only.`
 
-User: ${profile.weightKg}kg, ${profile.heightCm}cm, goal=${profile.goal}, activity=${profile.activity}
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
 
-Return ONLY valid JSON (no markdown):
-{
-  "isEdible": boolean,
-  "foodName": "Japanese dish name",
-  "description": "2-3 sentences in Japanese describing what you see (brand, packaging, colors, portions)",
-  "funReview": "2-3 sentences in Japanese — playful, exaggerated reaction AS IF the pet くっくぴん is commenting. Use emoji. Be funny but still mention health.",
-  "ingredients": ["english lowercase", "..."],
-  "healthScore": 0-100,
-  "nutrition": {
-    "calories": number,
-    "carbs": number,
-    "protein": number,
-    "fat": number,
-    "fiber": number,
-    "vegetableServings": number
-  },
-  "rejectReason": "only when isEdible is false"
-}
-
-Rules:
-- Convenience store / コンビニ packaged food IS edible (7-Eleven pasta, onigiri, bento, etc.)
-- Estimate nutrition for the visible portion (one serving)
-- healthScore = food quality only (0=junk, 100=ideal)
-- If not food at all, set isEdible=false and explain in description + funReview`
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mimeType, data } }, { text: prompt }] }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 1200,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  )
+  let res: Response
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'x-goog-api-key': apiKey, 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ inline_data: { mime_type: mimeType, data } }, { text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 600,
+            responseMimeType: 'application/json',
+          },
+        }),
+      },
+    )
+  } catch (err) {
+    clearTimeout(timer)
+    const aborted = err instanceof Error && err.name === 'AbortError'
+    return { result: null, error: aborted ? 'timeout' : 'network' }
+  } finally {
+    clearTimeout(timer)
+  }
 
   if (!res.ok) {
     console.error(`Gemini API error (${model}):`, res.status)
@@ -173,13 +163,14 @@ async function callGemini(
 ): Promise<{ result: GeminiFoodResult | null; error?: string }> {
   const { mimeType, data } = parseBase64Image(imageBase64)
 
-  for (const model of GEMINI_MODELS) {
+  for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
     const out = await callGeminiOnce(apiKey, model, mimeType, data, profile)
     if (out.result) return { result: out.result }
+    if (out.error === 'timeout') return { result: null, error: 'timeout' }
     if (out.status && out.status !== 404) break
   }
 
-  return { result: null, error: 'all_models_failed' }
+  return { result: null, error: 'api_failed' }
 }
 
 function rejectNotFood(message?: string, reason?: 'not_food' | 'api_error', extra?: Partial<GeminiFoodResult>) {
@@ -235,12 +226,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { result: gemini } = await callGemini(geminiKey, imageBase64, profile)
+    const { result: gemini, error: geminiError } = await callGemini(geminiKey, imageBase64, profile)
     if (!gemini) {
-      return rejectNotFood(
-        'AI分析サービスに接続できませんでした。しばらくしてからもう一度お試しください 📸',
-        'api_error',
-      )
+      const timeoutMsg =
+        'AI分析がタイムアウトしました（30秒以上）。画像を小さくするか、しばらくして再試行してください ⏱️'
+      const failMsg =
+        geminiError === 'timeout'
+          ? timeoutMsg
+          : 'AI分析サービスに接続できませんでした。しばらくしてからもう一度お試しください 📸'
+      return rejectNotFood(failMsg, 'api_error')
     }
     if (!gemini.isEdible) {
       return rejectNotFood(

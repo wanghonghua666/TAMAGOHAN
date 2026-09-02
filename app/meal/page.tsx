@@ -319,6 +319,9 @@ export default function MealPage() {
               <p className="text-gray-600">
                 画像を解析して健康スコアを算出しています
               </p>
+              <p className="text-sm text-gray-400 mt-2">
+                通常 15〜40 秒かかります。しばらくお待ちください…
+              </p>
             </div>
           )}
 
